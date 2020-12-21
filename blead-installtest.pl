@@ -16,7 +16,7 @@ outlined at L<https://metacpan.org/pod/distribution/perl/Porting/release_manager
 
 It assumes a built and ready-to-install Perl and then installs that in a
 temporary directory and tests that L<DBD::SQLite> (and L<DBI>) and L<Inline::C>
-onstall and that Inline::C can run some example code.
+install and that Inline::C can run some example code.
 
 It could maybe also be given a premade tarball to test.
 
