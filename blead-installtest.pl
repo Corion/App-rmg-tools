@@ -1,6 +1,7 @@
 #!perl
 use 5.020;
 use File::Temp 'tempdir';
+use Cwd;
 use File::Basename;
 use HTTP::Tiny;
 use Config '%Config';
@@ -16,9 +17,11 @@ outlined at L<https://metacpan.org/pod/distribution/perl/Porting/release_manager
 
 It assumes a built and ready-to-install Perl and then installs that in a
 temporary directory and tests that L<DBD::SQLite> (and L<DBI>) and L<Inline::C>
-install and that Inline::C can run some example code.
+onstall and that Inline::C can run some example code.
 
 It could maybe also be given a premade tarball to test.
+
+It also tests that microperl can be compiled.
 
 =cut
 
@@ -38,7 +41,7 @@ delete @ENV{qw( PERL5LIB PERL_MB_OPT PERL_LOCAL_LIB_ROOT PERL_MM_OPT )};
 
 use Test::More;
 
-plan tests => 3;
+plan tests => 4;
 
 =head1 SYNOPSIS
 
@@ -120,5 +123,7 @@ ok run( "$perldir/perl$perltoolstr", "-Ilib", "-lwe", q{use Inline C => q[int f(
 
 # When built from a git directory, it should be
 # This is perl 5, version X, subversion Y (v5.X.Y (v5.X.Z-NNN-gdeadbeef))
+chdir( $builddir );
+ok(system("$Config{make} -f Makefile.micro") == 0, "We can create microperl");
 
 done_testing;
