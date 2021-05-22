@@ -299,7 +299,7 @@ for my $board (@boards) {
 
 binmode STDOUT, ':encoding(UTF-8)';
 for my $step (@steps) {
-    my $done = $step->{test}->();
+    my $done = $step->{test}->($step);
     my $v_done = $done ? "[\N{CHECK MARK}]" : "[ ]";
     say "$v_done $step->{name}";
 }
