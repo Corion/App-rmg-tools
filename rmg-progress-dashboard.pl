@@ -56,8 +56,9 @@ sub lines($file) {
 }
 
 sub run(@command) {
-    run3(\@command, \undef, \my @stdout, \my @stderr)
-        or die "Command [@command] failed: $! / $?";
+    run3(\@command, \undef, \my @stdout, \my @stderr, {
+        return_if_system_error => 1,
+    }) == -1 and warn "Command [@command] failed: $! / $?";
     return trimmed(@stdout);
 }
 
@@ -106,6 +107,7 @@ my @tag = git('describe','--abbrev=0');
 my $current_tag = $tag[0];
 my $our_tag;
 my $tag_date = git('tag', '-l', '--format=%(refname:short) %(taggerdate:short)', $current_tag);
+my $our_version_num;
 
 # See if we already bumped the version:
 if( ! $our_version ) {
@@ -117,10 +119,16 @@ if( ! $our_version ) {
         $our_tag = $current_tag =~ s/(\d+)$/$1+1/re;
     };
     $our_version //= $our_tag =~ s/^v//r;
+
+    $previous_version //= $our_version =~ s/(\d+)$/$1-1/re;
 } else {
-    $previous_version = $our_version =~ s/(\d+)$/$1-1/re;
+    $previous_version //= $our_version =~ s/(\d+)$/$1-1/re;
     $our_tag = "v$our_version";
 }
+$our_version =~ /(\d+)\.(\d+)\.(\d+)/
+    or die "Weirdo version number '$our_version'";
+$our_version_num = sprintf "%d.%03d%03d", $1,$2,$3;
+
 say "Previous release is $previous_version, our version will be $our_version";
 
 # Do a sanity check agsint Porting/release_schedule.pod
@@ -209,7 +217,7 @@ my @steps = (
     {
         name => 'Module::CoreList was updated',
         test => sub {
-                commit_message_exists( "Update Module::CoreList for $our_tag" )
+                commit_message_exists( "Update Module::CoreList for .*$our_version" )
         },
     },
     {
@@ -294,8 +302,20 @@ my @steps = (
             and git( 'ls-remote', '--tags', $git_remote );
         },
     },
+    {
+        name => 'Version number bumped for next dev release',
+        type => 'BLEAD-POINT',
+        test => sub {
+            my $branch = git_branch();
+                $branch eq 'blead'
+            and git( tag => '-l', $our_tag )
+            and git( 'ls-remote', '--tags', $git_remote );
+        },
+    },
 );
 
+# IPC::Run3 thrashes *STDOUT encoding, for some reason ?!
+# Maybe we should first collect all boards and items, and the output them
 binmode STDOUT, ':encoding(UTF-8)';
 
 for my $board (@boards) {
@@ -311,6 +331,8 @@ for my $board (@boards) {
     };
 }
 
+# A list of files that need to be newer (or same) than the previous, in sequence
+my @up_to_date_files;
 binmode STDOUT, ':encoding(UTF-8)';
 for my $step (@steps) {
     my $done = $step->{test}->($step);
