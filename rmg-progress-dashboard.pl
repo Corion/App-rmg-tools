@@ -177,15 +177,27 @@ my @steps = (
     },
     {
         name => 'Configure was run',
-        test => sub {
-                file_exists( 'config.sh', $build_dir )
-            and file_exists( 'Policy.sh', $build_dir )
+        files => [qw[config.sh Policy.sh]],
+        test => sub( $self ) {
+            my $res = 1;
+            for my $file (@{ $self->{files}}) {
+                $res = $res && file_exists( $file, $build_dir )
+            };
+            $res
         },
     },
     {
-        name => 'make was run',
-        test => sub {
-                file_exists( 'perl', $build_dir )
+        name => "Perl $our_version was built",
+        files => ["perl", "perl$our_version"],
+        test => sub($self) {
+            my $res = 1;
+            for my $file (@{ $self->{files}}) {
+                $res = $res
+                       && file_exists( $file, $build_dir )
+                       && -x "$build_dir/$file"
+                       && (run("$build_dir/$file", '-wE', 'say $]') == $our_version_num)
+            };
+            $res
         },
     },
     {
@@ -201,9 +213,11 @@ my @steps = (
         },
     },
     {
-        name => 'perldelta was edited',
+        name => "perldelta was finalized for $our_version",
+        files => ["pod/perldelta.pod"],
         test => sub {
-                commit_message_exists( "perldelta for $our_tag" )
+                commit_message_exists( "update perldelta for .*$our_version" )
+                # this should also check whether the module list was updated
         },
     },
     {
