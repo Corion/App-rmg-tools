@@ -314,9 +314,7 @@ my @steps = (
     },
 );
 
-# IPC::Run3 thrashes *STDOUT encoding, for some reason ?!
 # Maybe we should first collect all boards and items, and the output them
-binmode STDOUT, ':encoding(UTF-8)';
 
 for my $board (@boards) {
     my ($header,$items) = $board->{list}->();
@@ -325,6 +323,8 @@ for my $board (@boards) {
     if( @$items ) {
         my $table = Text::Table->new( @$header );
         $table->load( @$items );
+        # IPC::Run3 thrashes *STDOUT encoding, for some reason ?!
+        binmode STDOUT, ':encoding(UTF-8)';
         say $table;
     } else {
         say "- none -";
@@ -333,9 +333,10 @@ for my $board (@boards) {
 
 # A list of files that need to be newer (or same) than the previous, in sequence
 my @up_to_date_files;
-binmode STDOUT, ':encoding(UTF-8)';
 for my $step (@steps) {
     my $done = $step->{test}->($step);
+    # IPC::Run3 thrashes *STDOUT encoding, for some reason ?!
+    binmode STDOUT, ':encoding(UTF-8)';
     my $v_done = $done ? "[\N{CHECK MARK}]" : "[ ]";
     say "$v_done $step->{name}";
 }
