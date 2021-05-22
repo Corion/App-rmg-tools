@@ -41,7 +41,7 @@ delete @ENV{qw( PERL5LIB PERL_MB_OPT PERL_LOCAL_LIB_ROOT PERL_MM_OPT )};
 
 use Test::More;
 
-plan tests => 4;
+plan tests => 3;
 
 =head1 SYNOPSIS
 
@@ -124,6 +124,6 @@ ok run( "$perldir/perl$perltoolstr", "-Ilib", "-lwe", q{use Inline C => q[int f(
 # When built from a git directory, it should be
 # This is perl 5, version X, subversion Y (v5.X.Y (v5.X.Z-NNN-gdeadbeef))
 chdir( $builddir );
-ok(system("$Config{make} -f Makefile.micro") == 0, "We can create microperl");
+#ok(system("$Config{make} -f Makefile.micro") == 0, "We can create microperl");
 
 done_testing;
