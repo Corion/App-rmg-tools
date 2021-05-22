@@ -196,14 +196,14 @@ my @steps = (
     },
     {
         name => "Perl $our_version was built",
-        files => ["perl", "perl$our_version"],
+        files => ["perl"],
         test => sub($self) {
             my $res = 1;
             for my $file (@{ $self->{files}}) {
                 $res = $res
                        && file_exists( $file, $build_dir )
                        && -x "$build_dir/$file"
-                       && (run("$build_dir/$file", '-wE', 'say $]') == $our_version_num)
+                       && ([run("$build_dir/$file", '-wE', 'say $]')]->[0] == $our_version_num)
             };
             $res
         },
