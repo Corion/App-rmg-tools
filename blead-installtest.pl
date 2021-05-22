@@ -47,7 +47,7 @@ plan tests => 4;
 
     # Configure, test and install bleadperl
     export  PERL_TEST_HARNESS_ASAP=1; export HARNESS_OPTIONS=j8 ; export MAKEFLAGS=-j12
-    sh ./Configure -des -Dprefix='/tmp/perl' -Dusedevel ; make test_prep -j 12 ; HARNESS_OPTIONS=j12 make test_harness install
+    sh ./Configure -des -Dprefix='/tmp/perl' -Dusedevel ; make test_prep -j 12 ; HARNESS_OPTIONS=j12 make test_harness && make install
 
     # Run the RMG installation tests
     /tmp/perl/bin/perl5.33.5 ../blead-installtest.pl
