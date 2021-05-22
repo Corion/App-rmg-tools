@@ -15,16 +15,23 @@ use Text::Table;
 GetOptions(
     'build-dir|d=s' => \my $build_dir,
     'version=s' => \my $our_version,
+    'prev-version=s' => \my $previous_version,
     'date=s' => \my $our_rundate,
+    'git-remote=s' => \my $git_remote,
 );
 
 my $today = strftime '%Y-%m-%d', localtime;
 $our_rundate //= $today;
 
 $build_dir //= '.';
+$git_remote //= 'github';
 
 sub file_exists( $fn, $dir = $build_dir ) {
-    -f "$build_dir/$fn"
+    if( $fn =~ m!^/! ) {
+        # absolute filename, sorry Windows users
+    } else {
+        -f "$build_dir/$fn"
+    }
 }
 
 sub trimmed(@lines) {
@@ -51,6 +58,7 @@ sub git(@command) {
 sub commit_message_exists($message) {
     # this is pretty ugly - I think we want a more structured approach to parsing
     # a git commit. Some other day
+    # Also, we only want to list the commits since the previous release tag
     my @list =
         map { my @items=split /#/, $_;
             +{
@@ -76,20 +84,34 @@ sub parse_release_schedule($dir=$build_dir,$file="Porting/release_schedule.pod")
         lines("$build_dir/Porting/release_schedule.pod");
 }
 
+sub git_branch {
+    git(branch => '--show-current')
+}
+
+sub http_exists( $url ) {
+    return 0
+}
+
 my @tag = git('describe','--abbrev=0');
 my $current_tag = $tag[0];
 my $our_tag;
 my $tag_date = git('tag', '-l', '--format=%(refname:short) %(taggerdate:short)', $current_tag);
 
 # See if we already bumped the version:
-if( $today eq $tag_date ) {
-    $our_tag = $current_tag;
+if( ! $our_version ) {
+    if( $today eq $tag_date ) {
+        # This will fail horribly on the date we actually try this?!
+        $our_tag = $current_tag;
+    } else {
+        # Tag not created today, bump it by one
+        $our_tag = $current_tag =~ s/(\d+)$/$1+1/re;
+    };
+    $our_version //= $our_tag =~ s/^v//r;
 } else {
-    # Tag not created today, bump it by one
-    $our_tag = $current_tag =~ s/(\d+)$/$1+1/re;
-};
-$our_version //= $our_tag =~ s/^v//r;
-say "We are on $current_tag, our version will be $our_version";
+    $previous_version = $our_version =~ s/(\d+)$/$1-1/re;
+    $our_tag = "v$our_version";
+}
+say "Previous release is $previous_version, our version will be $our_version";
 
 # Do a sanity check agsint Porting/release_schedule.pod
 (my $planned_release) = grep { $_->{version} eq $our_version }
@@ -104,6 +126,8 @@ if( ! $planned_release ) {
 } else {
     say "Your name in Porting/release_schedule.pod is $planned_release->{name}";
 };
+
+my $our_tarball_xz = "perl-$our_version.tar.xz";
 
 my @boards = (
     {
@@ -135,6 +159,12 @@ my @boards = (
 );
 
 my @steps = (
+    {
+        name => 'Release branch created',
+        test => sub {
+            git_branch() eq $our_tag
+        },
+    },
     {
         name => 'Configure was run',
         test => sub {
@@ -173,9 +203,71 @@ my @steps = (
         },
     },
     {
-        name => 'epigraph was added',
+        name => "tag for $our_tag is created",
         test => sub {
-                commit_message_exists( "epigraph.*$our_tag" )
+                git( tag => '-l', $our_tag );
+        },
+    },
+    {
+        name => "release tarball exists",
+        test => sub {
+            # Well, this should also be newer than all other
+            # files here
+                file_exists( "../$our_tarball_xz" );
+        },
+    },
+    {
+        name => "local installation of $our_version exists at /tmp/perl-$our_version",
+        test => sub {
+            # Well, this should also be newer than all other
+            # files here
+            my $target = "/tmp/perl-$our_version/bin/perl$our_version";
+                file_exists( $target )
+            and -x $target;
+        },
+    },
+    {
+        name => "release tarball published for testing",
+        test => sub {
+            # Do we want to make an HTTP call every time?!
+            # Or only do that if the release tarball exists, and then
+            # check that they are identical!
+                http_exists("https://datenzoo.de/$our_tarball_xz")
+        },
+    },
+    {
+        name => "release tarball published on CPAN",
+        test => sub {
+            # Do we want to make an HTTP call every time?!
+            # Or only do that if the release tarball exists, and then
+            # check that they are identical!
+                http_exists("https://www.cpan.org/authors/id/C/CO/CORION/$our_tarball_xz")
+        },
+    },
+    {
+        name => 'Release schedule ticked and committed',
+        test => sub {
+            my $line =
+                $planned_release->{released}
+                and commit_message_exists( "release_.*$our_tag" )
+
+        },
+    },
+    {
+        name => 'Release branch merged back to blead',
+        test => sub {
+            my $branch = git_branch();
+                $branch eq 'blead'
+            and git( tag => '-l', $our_tag );
+        },
+    },
+    {
+        name => 'Release tag pushed upstream',
+        test => sub {
+            my $branch = git_branch();
+                $branch eq 'blead'
+            and git( tag => '-l', $our_tag )
+            and git( 'ls-remote', '--tags', $git_remote );
         },
     },
 );
