@@ -18,13 +18,23 @@ GetOptions(
     'prev-version=s' => \my $previous_version,
     'date=s' => \my $our_rundate,
     'git-remote=s' => \my $git_remote,
+    'cpan-user=s' => \my $cpan_user,
 );
+
+=head1 SYNOPSIS
+
+  watch -n 10 /usr/bin/perl ../App-rmg-tools/rmg-progress-dashboard.pl --version 5.35.1
+
+=cut
 
 my $today = strftime '%Y-%m-%d', localtime;
 $our_rundate //= $today;
 
 $build_dir //= '.';
 $git_remote //= 'github';
+$cpan_user //= 'CORION';
+
+my $cpan_author_url = join "/", substr($cpan_user,0,1), substr($cpan_user,0,2), $cpan_user;
 
 sub file_exists( $fn, $dir = $build_dir ) {
     if( $fn =~ m!^/! ) {
@@ -241,7 +251,7 @@ my @steps = (
             # Do we want to make an HTTP call every time?!
             # Or only do that if the release tarball exists, and then
             # check that they are identical!
-                http_exists("https://www.cpan.org/authors/id/C/CO/CORION/$our_tarball_xz")
+                http_exists("https://www.cpan.org/authors/id/$cpan_author_url/$our_tarball_xz")
         },
     },
     {
