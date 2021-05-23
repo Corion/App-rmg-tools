@@ -186,7 +186,9 @@ if( ! $our_version ) {
 $our_version =~ /(\d+)\.(\d+)\.(\d+)/
     or die "Weirdo version number '$our_version'";
 $our_version_num = sprintf "%d.%03d%03d", $1,$2,$3;
+my $next_version =  sprintf "%d.%d.%d", $1,$2,$3+1;
 $previous_tag = "v$previous_version";
+
 my $release_branch = "release-$our_version";
 
 say "Previous release is $previous_version, our version will be $our_version";
@@ -488,16 +490,23 @@ my @steps = (
             ()
         },
     },
-    #{
-    #    name => 'Version number bumped for next dev release',
-    #    type => 'BLEAD-POINT',
-    #    test => sub {
-    #        my $branch = git_branch();
-    #            $branch eq 'blead'
-    #        and git( tag => '-l', $our_tag )
-    #        and git( 'ls-remote', '--tags', $git_remote );
-    #    },
-    #},
+    {
+        name => 'Version number bumped for next dev release',
+        type => 'BLEAD-POINT',
+        test => sub {
+            my $branch = git_branch();
+            if( $branch ne 'blead' ) {
+                return "Switch back to blead";
+            };
+
+            (my $version) = map {
+                /^api_versionstring='(.*?)'$/
+            } lines('config.sh');
+            if( $version ne $next_version) {
+                return "Found $version, bump versions"
+            };
+        },
+    },
 );
 
 # Maybe we should first collect all boards and items, and the output them
