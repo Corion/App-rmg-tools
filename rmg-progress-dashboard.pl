@@ -280,6 +280,50 @@ my @steps = (
                 $self->{status} = $bad;
                 ! $bad;
         },
+    },
+    {
+        name => "release was added to perlhist.pod",
+        files => ["pod/perlhist.pod"],
+        test => sub( $self ) {
+                # Perlhist.pod has yet another date format, instead of yyyy-mm-dd
+                # We ignore that
+                my $version = $our_tag =~ s/^v//r;
+                (my $this) = grep { /\Q$version\E/ } lines( 'pod/perlhist.pod' );
+
+                if( ! $this ) {
+                    $self->{ status } = 'version not added';
+                    return;
+                };
+
+                if( ! commit_message_exists( "add new release to perlhist",
+                    since => $previous_tag,
+                    author => $git_author,
+                )) {
+                    $self->{ status } = 'pod/perlhist.pod not committed';
+                    return;
+                };
+                return 1
+        },
+    },
+    {
+        action => sub( $self ) {
+            run('./perl', "-Ilib", "Porting/makemeta");
+        },
+        name => "META files are up to date",
+        files => ["META.json","META.yml"],
+        test => sub( $self ) {
+                # Check that the META.* files are up to date
+                my $ok = exitcode_zero('./perl', '-Ilib', 'Porting/makemeta', '-n');
+                if( ! $ok ) {
+                    $self->{status} = "run ./perl -Ilib Porting/makemeta";
+                    return
+
+                } elsif( my @files = uncommited_changes( @{ $self->{files}})) {
+                    $self->{status} = "Commit the changes to @files";
+                    return
+
+                }
+                return 1
         },
     },
     {
