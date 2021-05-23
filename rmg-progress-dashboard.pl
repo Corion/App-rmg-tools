@@ -275,8 +275,11 @@ my @steps = (
     },
     {
         name => 'perldelta is clean',
-        test => sub {
-                ! grep { /\bXXX\b/ } lines('pod/perldelta.pod');
+        test => sub( $self ) {
+                (my $bad) = grep { /\bXXX\b|^\s*\[/ } lines('pod/perldelta.pod');
+                $self->{status} = $bad;
+                ! $bad;
+        },
         },
     },
     {
