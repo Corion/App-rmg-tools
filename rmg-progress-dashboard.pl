@@ -329,8 +329,10 @@ my @steps = (
         test => sub {
             my $line =
                 $planned_release->{released}
-                and commit_message_exists( "release_.*$our_tag" )
-
+                and commit_message_exists( "release_.*$our_tag",
+                    since => $previous_tag,
+                    author => $git_author,
+                )
         },
     },
     {
