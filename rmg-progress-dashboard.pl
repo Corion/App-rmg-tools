@@ -383,10 +383,16 @@ for my $board (@boards) {
 
 # A list of files that need to be newer (or same) than the previous, in sequence
 my @up_to_date_files;
+my @items;
 for my $step (@steps) {
     my $done = $step->{test}->($step);
-    # IPC::Run3 thrashes *STDOUT encoding, for some reason ?!
-    binmode STDOUT, ':encoding(UTF-8)';
+    my $name = $step->{name};
     my $v_done = $done ? "[\N{CHECK MARK}]" : "[ ]";
-    say "$v_done $step->{name}";
+    my $status = delete $step->{status};
+    push @items, [$v_done,$name,$status];
 }
+# IPC::Run3 thrashes *STDOUT encoding, for some reason ?!
+binmode STDOUT, ':encoding(UTF-8)';
+my $table = Text::Table->new();
+$table->load( @items );
+say $table;
