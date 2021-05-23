@@ -243,7 +243,6 @@ my @steps = (
         name => 'Release branch created',
         test => sub( $self ) {
             my $branch = git_branch();
-            say "On branch $branch, expect '$release_branch'";
             $branch ne $release_branch
                 and return "Create branch $release_branch"
         },
