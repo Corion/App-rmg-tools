@@ -187,6 +187,7 @@ $our_version =~ /(\d+)\.(\d+)\.(\d+)/
     or die "Weirdo version number '$our_version'";
 $our_version_num = sprintf "%d.%03d%03d", $1,$2,$3;
 $previous_tag = "v$previous_version";
+my $release_branch = "release-$our_version";
 
 say "Previous release is $previous_version, our version will be $our_version";
 
@@ -240,47 +241,68 @@ my @steps = (
         name => 'Release branch created',
         test => sub( $self ) {
             (my $branch) = git_branch();
-            $branch eq "release-$our_version"
+            say "On branch $branch, expect '$release_branch'";
+            $branch ne $release_branch
+                and return "Create branch $release_branch"
         },
     },
     {
         name => 'Configure was run',
         files => [qw[config.sh Policy.sh]],
+        action => sub( $self ) {
+            run('sh ./Configure -Dusedevel -des');
+        },
         test => sub( $self ) {
-            my $res = 1;
             for my $file (@{ $self->{files}}) {
-                $res = $res && file_exists( $file, $build_dir )
+                if( !file_exists( $file, $build_dir )) {
+                    return "Run ./Configure -Dusedevel -des"
+                }
             };
-            $res
+            if( -f "$build_dir/perl" ) {
+                # should we check that the files are older than ./perl?
+            };
+            ()
         },
     },
     {
         name => "Perl $our_version was built",
         files => ["perl"],
         test => sub($self) {
-            my $res = 1;
-            for my $file (@{ $self->{files}}) {
-                $res = $res
-                       && file_exists( $file, $build_dir )
-                       && -x "$build_dir/$file"
-                       && ([run("$build_dir/$file", '-wE', 'say $]')]->[0] == $our_version_num)
+            # This will fail on Windows ...
+            if( !file_exists( 'perl', $build_dir )) {
+                return "Run make";
             };
-            $res
+
+            if( my @newer = file_newer_than( "./perl", ["config.sh", "Policy.sh" ])) {
+                return "Rebuild ./perl, @newer is newer"
+            };
+
+            my $v = [run("$build_dir/perl", '-wE', 'say $]')]->[0];
+            if( $v != $our_version_num) {
+                return "Wrong Perl version was built ($v, expected $our_version)";
+            };
         },
     },
     {
         name => 'make test was run',
         test => sub {
-                file_exists( 't/rantests', $build_dir )
+                if( ! file_exists( 't/rantests', $build_dir )) {
+                    return "Run make test";
+                };
+                if( ! file_newer_than('t/rantests', 'perl')) {
+                    return "Run make test after rebuild";
+                };
         },
     },
     {
         name => 'Module::CoreList was updated',
         test => sub {
-                commit_message_exists( "Update Module::CoreList for .*$our_version",
+                if( ! commit_message_exists( "Update Module::CoreList for .*$our_version",
                     since => $previous_tag,
                     author => $git_author,
-                )
+                )) {
+                    return "Update Module::CoreList, commit the changes"
+                }
         },
     },
     {
@@ -288,23 +310,30 @@ my @steps = (
         files => ["pod/perldelta.pod"],
         test => sub( $self ) {
             # We want/need ./perl as a prerequisite
-                my $acknowledgements = join "\n", run("./perl", "Porting/acknowledgements.pl", "$previous_tag..HEAD");
-                $acknowledgements =~ s!\s+$!!;
+                my $new = join "\n", run("./perl", "Porting/acknowledgements.pl", "$previous_tag..HEAD");
+                $new =~ s!\s+$!!;
                 my $old = pod_section('pod/perldelta.pod', 'Acknowledgements');
-                commit_message_exists( "update perldelta for .*$our_version",
+
+                if( $new ne $old ) {
+                    return "Update the acknowledgements in pod/perldelta.pod";
+                };
+
+                if( ! commit_message_exists( "update perldelta for .*$our_version",
                     since => $previous_tag,
                     author => $git_author,
-                )
-                and $acknowledgements eq $old;
-                # this should also check whether the module list was updated
+                )) {
+                    return "Commit the changes";
+                };
         },
     },
     {
         name => 'perldelta is clean',
+        files => ["pod/perldelta.pod"],
         test => sub( $self ) {
                 (my $bad) = grep { /\bXXX\b|^\s*\[/ } lines('pod/perldelta.pod');
-                $self->{status} = $bad;
-                ! $bad;
+                if ($bad) {
+                    return "Fix '$bad'"
+                };
         },
     },
     {
@@ -317,18 +346,15 @@ my @steps = (
                 (my $this) = grep { /\Q$version\E/ } lines( 'pod/perlhist.pod' );
 
                 if( ! $this ) {
-                    $self->{ status } = 'version not added';
-                    return;
+                    return "version $version not added";
                 };
 
                 if( ! commit_message_exists( "add new release to perlhist",
                     since => $previous_tag,
                     author => $git_author,
                 )) {
-                    $self->{ status } = 'pod/perlhist.pod not committed';
-                    return;
+                    return "Commit changes to 'pod/perlhist.pod'";
                 };
-                return 1
         },
     },
     {
@@ -341,29 +367,37 @@ my @steps = (
                 # Check that the META.* files are up to date
                 my $ok = exitcode_zero('./perl', '-Ilib', 'Porting/makemeta', '-n');
                 if( ! $ok ) {
-                    $self->{status} = "run ./perl -Ilib Porting/makemeta";
-                    return
+                    return "run ./perl -Ilib Porting/makemeta";
 
                 } elsif( my @files = uncommited_changes( @{ $self->{files}})) {
-                    $self->{status} = "Commit the changes to @files";
-                    return
+                    return "Commit the changes to @files";
 
                 }
-                return 1
+                ()
         },
     },
     {
         name => "tag for $our_tag is created",
         test => sub {
-                git( tag => '-l', $our_tag );
+                if( ! git( tag => '-l', $our_tag )) {
+                    return "Create the release tag $our_tag"
+                };
         },
     },
     {
         name => "release tarball exists",
+        files => ["$build_dir/../$our_tarball_xz"],
         test => sub {
             # Well, this should also be newer than all other
             # files here
-                file_exists( "../$our_tarball_xz" );
+                if( ! file_exists( "../$our_tarball_xz" )) {
+                    return "Build the release tarball $our_tarball_xz"
+                };
+
+                if( my @newer = file_newer_than( "../$our_tarball_xz", "./perl" )) {
+                    return "Rebuild ../$our_tarball_xz, @newer is newer"
+                }
+                ()
         },
     },
     {
@@ -372,17 +406,31 @@ my @steps = (
             # Well, this should also be newer than all other
             # files here
             my $target = "/tmp/perl-$our_version/bin/perl$our_version";
-                file_exists( $target )
-            and -x $target;
+            if( !file_exists( $target )) {
+                return "Locallly install $our_version"
+            };
+
+            if( my @newer = file_newer_than( $target, "./perl" )) {
+                    return "Retest local installation, @newer is newer"
+            };
+
+            ()
         },
     },
     {
         name => "release tarball published for testing",
+        files => ["$build_dir/../$our_tarball_xz"],
         test => sub {
             # Do we want to make an HTTP call every time?!
             # Or only do that if the release tarball exists, and then
             # check that they are identical!
-                http_exists("https://datenzoo.de/$our_tarball_xz")
+                if( my @newer = file_newer_than( "../$our_tarball_xz", "./perl" )) {
+                    return "Rebuild ../$our_tarball_xz, @newer is newer"
+                }
+                if(! http_exists("https://datenzoo.de/$our_tarball_xz")) {
+                    return "Upload the tarball for testing"
+                };
+                ()
         },
     },
     {
@@ -391,47 +439,65 @@ my @steps = (
             # Do we want to make an HTTP call every time?!
             # Or only do that if the release tarball exists, and then
             # check that they are identical!
-                http_exists("https://www.cpan.org/authors/id/$cpan_author_url/$our_tarball_xz")
+                if(! http_exists("https://www.cpan.org/authors/id/$cpan_author_url/$our_tarball_xz")) {
+                    return "Upload the tarball to CPAN"
+                };
         },
     },
     {
         name => 'Release schedule ticked and committed',
         test => sub {
-            my $line =
-                $planned_release->{released}
-                and commit_message_exists( "release_.*$our_tag",
+            if( ! $planned_release->{released} ) {
+                return "Tick the release mark";
+            };
+            if( ! commit_message_exists( "release_.*$our_tag",
                     since => $previous_tag,
                     author => $git_author,
-                )
+                )) {
+                return "Commit the change";
+            };
         },
     },
     {
         name => 'Release branch merged back to blead',
         test => sub {
             my $branch = git_branch();
-                $branch eq 'blead'
-            and git( tag => '-l', $our_tag );
+            if( $branch ne 'blead') {
+                return "Switch back to blead";
+            }
+            my @diff = git( log => $release_branch..'blead' );
+            if( @diff ) {
+                return "Merge $release_branch into blead";
+            };
+            ()
         },
     },
     {
         name => 'Release tag pushed upstream',
         test => sub {
             my $branch = git_branch();
-                $branch eq 'blead'
-            and git( tag => '-l', $our_tag )
-            and git( 'ls-remote', '--tags', $git_remote );
+            if( $branch ne 'blead' ) {
+                return "Switch back to blead";
+            };
+            if( ! git( tag => '-l', $our_tag )) {
+                return "Tag '$our_tag' was not found in git?!"
+            };
+            if( ! git( 'ls-remote', '--tags', $git_remote )) {
+                return "Push the release tag upstream";
+            };
+            ()
         },
     },
-    {
-        name => 'Version number bumped for next dev release',
-        type => 'BLEAD-POINT',
-        test => sub {
-            my $branch = git_branch();
-                $branch eq 'blead'
-            and git( tag => '-l', $our_tag )
-            and git( 'ls-remote', '--tags', $git_remote );
-        },
-    },
+    #{
+    #    name => 'Version number bumped for next dev release',
+    #    type => 'BLEAD-POINT',
+    #    test => sub {
+    #        my $branch = git_branch();
+    #            $branch eq 'blead'
+    #        and git( tag => '-l', $our_tag )
+    #        and git( 'ls-remote', '--tags', $git_remote );
+    #    },
+    #},
 );
 
 # Maybe we should first collect all boards and items, and the output them
@@ -455,11 +521,11 @@ for my $board (@boards) {
 my @up_to_date_files;
 my @items;
 for my $step (@steps) {
-    my $done = $step->{test}->($step);
+    my $action = $step->{test}->($step);
     my $name = $step->{name};
-    my $v_done = $done ? "[\N{CHECK MARK}]" : "[ ]";
-    my $status = delete $step->{status};
-    push @items, [$v_done,$name,$status];
+    my $v_done = ! $action ? "[\N{CHECK MARK}]" : "[ ]";
+    #my $status = delete $step->{status};
+    push @items, [$v_done,$name,$action];
 }
 # IPC::Run3 thrashes *STDOUT encoding, for some reason ?!
 binmode STDOUT, ':encoding(UTF-8)';
