@@ -113,6 +113,26 @@ sub git_branch {
     git(branch => '--show-current')
 }
 
+sub pod_section( $filename, $section ) {
+    my @lines = lines($filename);
+
+    my @section =
+        grep { /^=head1\s+$section/.../^=/ } @lines;
+
+    # Trim the section
+    if( @section ) {
+        pop @section if $section[-1] =~ /^=/;
+        shift @section; # remove the hading
+        pop @section
+            while $section[-1] =~ /^\s*$/;
+        shift @section
+            while $section[0] =~ /^\s*$/;
+    };
+
+    @section = map { $_ =~ s!^=\w+\s+!!; $_ } @section;
+    return join "\n", @section;
+}
+
 sub http_exists( $url ) {
     return 0
 }
@@ -240,8 +260,16 @@ my @steps = (
     {
         name => "perldelta was finalized for $our_version",
         files => ["pod/perldelta.pod"],
-        test => sub {
-                commit_message_exists( "update perldelta for .*$our_version" )
+        test => sub( $self ) {
+            # We want/need ./perl as a prerequisite
+                my $acknowledgements = join "\n", run("./perl", "Porting/acknowledgements.pl", "$previous_tag..HEAD");
+                $acknowledgements =~ s!\s+$!!;
+                my $old = pod_section('pod/perldelta.pod', 'Acknowledgements');
+                commit_message_exists( "update perldelta for .*$our_version",
+                    since => $previous_tag,
+                    author => $git_author,
+                )
+                and $acknowledgements eq $old;
                 # this should also check whether the module list was updated
         },
     },
