@@ -142,6 +142,7 @@ my $current_tag = $tag[0];
 my $our_tag;
 my $tag_date = git('tag', '-l', '--format=%(refname:short) %(taggerdate:short)', $current_tag);
 my $our_version_num;
+my $previous_tag;
 
 # See if we already bumped the version:
 if( ! $our_version ) {
@@ -162,6 +163,7 @@ if( ! $our_version ) {
 $our_version =~ /(\d+)\.(\d+)\.(\d+)/
     or die "Weirdo version number '$our_version'";
 $our_version_num = sprintf "%d.%03d%03d", $1,$2,$3;
+$previous_tag = "v$previous_version";
 
 say "Previous release is $previous_version, our version will be $our_version";
 
