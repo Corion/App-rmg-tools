@@ -118,6 +118,10 @@ sub git_branch {
     git(branch => '--show-current')
 }
 
+sub uncommited_changes(@files) {
+    git(status => '--porcelain=v2', '--', @files)
+}
+
 sub pod_section( $filename, $section ) {
     my @lines = lines($filename);
 
