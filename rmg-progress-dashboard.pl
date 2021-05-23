@@ -215,8 +215,9 @@ my @boards = (
 my @steps = (
     {
         name => 'Release branch created',
-        test => sub {
-            git_branch() eq $our_tag
+        test => sub( $self ) {
+            (my $branch) = git_branch();
+            $branch eq "release-$our_version"
         },
     },
     {
