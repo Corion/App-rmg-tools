@@ -46,6 +46,20 @@ sub file_exists( $fn, $dir = $build_dir ) {
     }
 }
 
+sub file_newer_than( $fn, $reference ) {
+    if( ! ref $reference ) {
+        $reference = [$reference]
+    };
+    if( ! ref $fn ) {
+        $fn = [$fn]
+    };
+    # Yay quadratic behaviour
+    map {
+        my $f = $_;
+        grep { -M $f >= -M $_ } @$reference
+    } @$fn
+}
+
 sub trimmed(@lines) {
     s!\s+$!! for @lines;
     return @lines;
