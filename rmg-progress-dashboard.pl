@@ -60,6 +60,7 @@ sub lines($file) {
 sub run(@command) {
     run3(\@command, \undef, \my @stdout, \my @stderr, {
         return_if_system_error => 1,
+        binmode_stdout => ':utf8',
     }) == -1 and warn "Command [@command] failed: $! / $?";
     return trimmed(@stdout);
 }
