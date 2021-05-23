@@ -19,6 +19,7 @@ GetOptions(
     'date=s' => \my $our_rundate,
     'git-remote=s' => \my $git_remote,
     'cpan-user=s' => \my $cpan_user,
+    'git-author=s' => \my $git_author,
 );
 
 =head1 SYNOPSIS
@@ -33,6 +34,7 @@ $our_rundate //= $today;
 $build_dir //= '.';
 $git_remote //= 'github';
 $cpan_user //= 'CORION';
+$git_author //= 'corion@corion.net';
 
 my $cpan_author_url = join "/", substr($cpan_user,0,1), substr($cpan_user,0,2), $cpan_user;
 
@@ -66,10 +68,21 @@ sub git(@command) {
     return run(git => @command)
 }
 
-sub commit_message_exists($message) {
+sub commit_message_exists($message, %options) {
     # this is pretty ugly - I think we want a more structured approach to parsing
     # a git commit. Some other day
     # Also, we only want to list the commits since the previous release tag
+
+
+    my @opts;
+    if( my $since = $options{ since } ) {
+        push @opts, join '..', $since, 'HEAD';
+    };
+
+    if( my $author = $options{ author }) {
+        push @opts, "--author=$author";
+    }
+
     my @list =
         map { my @items=split /#/, $_;
             +{
@@ -79,7 +92,7 @@ sub commit_message_exists($message) {
                 subject => $items[3],
             };
         }
-        git('log', '--pretty=format:%C(auto)%h#%as#%an#%s', '--grep', $message);
+        git('log', @opts, '--pretty=format:%C(auto)%h#%as#%an#%s', '--grep', $message);
     return @list
 }
 
@@ -217,7 +230,10 @@ my @steps = (
     {
         name => 'Module::CoreList was updated',
         test => sub {
-                commit_message_exists( "Update Module::CoreList for .*$our_version" )
+                commit_message_exists( "Update Module::CoreList for .*$our_version",
+                    since => $previous_tag,
+                    author => $git_author,
+                )
         },
     },
     {
