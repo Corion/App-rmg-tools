@@ -65,6 +65,11 @@ sub run(@command) {
     return trimmed(@stdout);
 }
 
+sub exitcode_zero(@command) {
+    run(@command);
+    return $? == 0
+}
+
 sub git(@command) {
     return run(git => @command)
 }
