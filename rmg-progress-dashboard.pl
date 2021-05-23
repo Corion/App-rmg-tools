@@ -129,7 +129,7 @@ sub parse_release_schedule($dir=$build_dir,$file="Porting/release_schedule.pod")
 }
 
 sub git_branch {
-    git(branch => '--show-current')
+    [git(branch => '--show-current')]->[0]
 }
 
 sub uncommited_changes(@files) {
@@ -240,7 +240,7 @@ my @steps = (
     {
         name => 'Release branch created',
         test => sub( $self ) {
-            (my $branch) = git_branch();
+            my $branch = git_branch();
             say "On branch $branch, expect '$release_branch'";
             $branch ne $release_branch
                 and return "Create branch $release_branch"
