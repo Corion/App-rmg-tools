@@ -247,6 +247,7 @@ my @boards = (
 my @steps = (
     {
         name => 'Release branch created',
+        reference => 'create a release branch',
         test => sub( $self ) {
             my $branch = git_branch();
             $branch ne $release_branch
@@ -255,6 +256,7 @@ my @steps = (
     },
     {
         name => 'Configure was run',
+        reference => 'build a clean perl',
         files => [qw[config.sh Policy.sh Makefile]],
         action => sub( $self ) {
             run('sh ./Configure -Dusedevel -des');
@@ -303,6 +305,7 @@ my @steps = (
     },
     {
         name => 'Module::CoreList was updated',
+        reference => 'update Module::CoreList',
         test => sub {
                 if( ! commit_message_exists( "Update Module::CoreList for .*$our_version",
                     since => $previous_tag,
