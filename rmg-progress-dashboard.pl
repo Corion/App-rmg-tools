@@ -508,7 +508,7 @@ my @steps = (
                 /^api_versionstring='(.*?)'$/
             } lines('config.sh');
             if( $version ne $next_version) {
-                return "Found $version, bump versions"
+                return "Found $version, bump versions to $next_version"
             };
         },
     },
