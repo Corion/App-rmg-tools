@@ -251,6 +251,7 @@ my @steps = (
         reference => 'create a release branch',
         test => sub( $self ) {
             my $branch = git_branch();
+            # timestamp: git show foo^{commit} -s '--format=%ai'
             $branch ne $release_branch
                 and return "Create branch $release_branch"
         },
@@ -397,6 +398,7 @@ my @steps = (
     },
     {
         name => "release tarball exists",
+        reference => 'build the tarball',
         files => ["$build_dir/../$our_tarball_xz"],
         test => sub {
             # Well, this should also be newer than all other
@@ -485,6 +487,7 @@ my @steps = (
     },
     {
         name => 'Release tag pushed upstream',
+        reference => 'publish the release tag',
         test => sub {
             my $branch = git_branch();
             if( $branch ne 'blead' ) {
@@ -502,6 +505,7 @@ my @steps = (
     {
         name => 'Version number bumped for next dev release',
         type => 'BLEAD-POINT',
+        reference => 'bump version',
         test => sub {
             my $branch = git_branch();
             if( $branch ne 'blead' ) {
