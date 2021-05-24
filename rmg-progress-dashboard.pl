@@ -254,7 +254,7 @@ my @steps = (
     },
     {
         name => 'Configure was run',
-        files => [qw[config.sh Policy.sh]],
+        files => [qw[config.sh Policy.sh Makefile]],
         action => sub( $self ) {
             run('sh ./Configure -Dusedevel -des');
         },
