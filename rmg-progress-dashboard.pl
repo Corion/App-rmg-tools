@@ -11,6 +11,7 @@ use Data::Dumper;
 use Getopt::Long;
 use IPC::Run3;
 use Text::Table;
+use JSON::PP;
 
 GetOptions(
     'build-dir|d=s' => \my $build_dir,
@@ -20,6 +21,7 @@ GetOptions(
     'git-remote=s' => \my $git_remote,
     'cpan-user=s' => \my $cpan_user,
     'git-author=s' => \my $git_author,
+    'formst=s' => \my $output_format,
 );
 
 =head1 SYNOPSIS
@@ -35,6 +37,7 @@ $build_dir //= '.';
 $git_remote //= 'github';
 $cpan_user //= 'CORION';
 $git_author //= 'corion@corion.net';
+$output_format //= 'text';
 
 my $cpan_author_url = join "/", substr($cpan_user,0,1), substr($cpan_user,0,2), $cpan_user;
 
@@ -191,7 +194,8 @@ $previous_tag = "v$previous_version";
 
 my $release_branch = "release-$our_version";
 
-say "Previous release is $previous_version, our version will be $our_version";
+my @info;
+push @info, "Previous release is $previous_version, our version will be $our_version";
 
 # Do a sanity check agsint Porting/release_schedule.pod
 (my $planned_release) = grep { $_->{version} eq $our_version }
@@ -202,9 +206,9 @@ if( ! $planned_release ) {
         name => $username,
 
     };
-    say "Couldn't find a release plan for $our_version, guessing as $planned_release->{name}";
+    push @info, "Couldn't find a release plan for $our_version, guessing as $planned_release->{name}";
 } else {
-    say "Your name in Porting/release_schedule.pod is $planned_release->{name}";
+    push @info, "Your name in Porting/release_schedule.pod is $planned_release->{name}";
 };
 
 my $our_tarball_xz = "perl-$our_version.tar.xz";
@@ -212,8 +216,9 @@ my $our_tarball_xz = "perl-$our_version.tar.xz";
 my @boards = (
     {
         name => 'CPAN modules newer than blead',
+        reference => 'dual life CPAN module synchronisation',
         list => sub {
-            my @items = run("./perl", "Porting/core-cpan-diff", "-x", "-a");
+            my @items = run("./perl", "-Ilib", "Porting/core-cpan-diff", "-x", "-a");
             my %items;
             my $curr;
             my @res;
@@ -508,20 +513,15 @@ my @steps = (
     },
 );
 
-# Maybe we should first collect all boards and items, and the output them
-
+# Collect the dashboard(s)
+my @rendered_boards;
 for my $board (@boards) {
     my ($header,$items) = $board->{list}->();
 
-    say $board->{name};
-    if( @$items ) {
-        my $table = Text::Table->new( @$header );
-        $table->load( @$items );
-        # IPC::Run3 thrashes *STDOUT encoding, for some reason ?!
-        binmode STDOUT, ':encoding(UTF-8)';
-        say $table;
-    } else {
-        say "- none -";
+    push @rendered_boards, {
+        board => $board,
+        header => $header,
+        content => $items,
     };
 }
 
@@ -535,8 +535,36 @@ for my $step (@steps) {
     #my $status = delete $step->{status};
     push @items, [$v_done,$name,$action];
 }
-# IPC::Run3 thrashes *STDOUT encoding, for some reason ?!
-binmode STDOUT, ':encoding(UTF-8)';
-my $table = Text::Table->new();
-$table->load( @items );
-say $table;
+
+if( $output_format eq 'text' ) {
+    # IPC::Run3 thrashes *STDOUT encoding, for some reason ?!
+    binmode STDOUT, ':encoding(UTF-8)';
+
+    say for @info;
+    say "";
+
+    for my $board (@rendered_boards) {
+        say $board->{board}->{name};
+        my $header = $board->{header};
+        my $items = $board->{content};
+        if( @$items ) {
+            my $table = Text::Table->new( @$header );
+            $table->load( @$items );
+            say $table;
+        } else {
+            say "- none -";
+        };
+    };
+    my $table = Text::Table->new();
+    $table->load( @items );
+    say $table;
+} elsif( $output_format eq 'html' ) {
+    # XXX
+} elsif( $output_format eq 'json' ) {
+    binmode STDOUT, ':encoding(UTF-8)';
+    say encode_json {
+        boards => \@rendered_boards,
+        steps => \@items,
+        info => \@info,
+    };
+}
