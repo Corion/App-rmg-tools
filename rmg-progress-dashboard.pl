@@ -69,9 +69,10 @@ sub trimmed(@lines) {
 }
 
 sub lines($file) {
-    open my $fh, '<:raw:utf8', $file
-        or die "Couldn't read '$file': $!";
-    return trimmed(<$fh>);
+    if( open my $fh, '<:raw:utf8', $file) {
+        return trimmed(<$fh>);
+    }
+    return ()
 }
 
 sub run(@command) {
