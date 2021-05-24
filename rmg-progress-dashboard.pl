@@ -21,7 +21,8 @@ GetOptions(
     'git-remote=s' => \my $git_remote,
     'cpan-user=s' => \my $cpan_user,
     'git-author=s' => \my $git_author,
-    'formst=s' => \my $output_format,
+    'format=s' => \my $output_format,
+    'output-file|o=s' => \my $output_file,
 );
 
 =head1 SYNOPSIS
@@ -526,6 +527,7 @@ for my $board (@boards) {
         board => $board,
         header => $header,
         content => $items,
+        name => $board->{name},
     };
 }
 
@@ -535,17 +537,19 @@ my @items;
 for my $step (@steps) {
     my $action = $step->{test}->($step);
     my $name = $step->{name};
-    my $v_done = ! $action ? "[\N{CHECK MARK}]" : "[ ]";
-    #my $status = delete $step->{status};
-    push @items, [$v_done,$name,$action];
+    push @items, {
+        done => !$action,
+        name => $name,
+        action => $action,
+        reference => $step->{reference},
+    };
 }
 
+my $output = '';
 if( $output_format eq 'text' ) {
     # IPC::Run3 thrashes *STDOUT encoding, for some reason ?!
-    binmode STDOUT, ':encoding(UTF-8)';
 
-    say for @info;
-    say "";
+    $output .= join "\n", @info, "";
 
     for my $board (@rendered_boards) {
         say $board->{board}->{name};
@@ -554,21 +558,213 @@ if( $output_format eq 'text' ) {
         if( @$items ) {
             my $table = Text::Table->new( @$header );
             $table->load( @$items );
-            say $table;
+            $output .= $table . "\n";
         } else {
-            say "- none -";
+            $output .= "- none -\n";
         };
     };
     my $table = Text::Table->new();
-    $table->load( @items );
-    say $table;
+    my @rendered_items = map {
+        my $v_done = $_->{done} ? "[\N{CHECK MARK}]" : "[ ]";
+        [$v_done, $_->{name}, $_->{action}]
+    } @items;
+    $table->load( @rendered_items );
+    $output .= $table . "\n";
+
 } elsif( $output_format eq 'html' ) {
-    # XXX
+    require HTML::Template;
+    local $/;
+    my @html_rendered_boards = map {
+        my %b = %$_;
+        +{
+            name    => $_->{name},
+            header  => [ map { +{col => $_ }; } @{$_->{header}} ],
+            content => [ map { +{row => [ map {+{col => $_ };} @$_] }} @{$_->{content}} ],
+        };
+
+    } @rendered_boards;
+
+    my @html_rendered_items = map {
+        my %i = %$_;
+        $i{reference} //= '';
+        $i{url} = 'https://metacpan.org/pod/distribution/perl/Porting/release_managers_guide.pod#' . ($i{reference} =~ s/\s+/-/gr);
+        my $v_done = $_->{done} ? "\N{CHECK MARK}" : "";
+        $i{done} = $v_done;
+        delete @i{qw[reference list]};
+        \%i
+    } @items;
+
+    my $tmpl = HTML::Template->new(
+        filehandle => *DATA,
+    );
+    $tmpl->param(info   => [map { +{line => $_ }} @info]);
+    $tmpl->param(boards => \@html_rendered_boards);
+    $tmpl->param(steps  => \@html_rendered_items);
+    $tmpl->param(our_version => $our_version);
+    $tmpl->param(timestamp  => strftime '%Y-%m-%d %H:%M:%S', gmtime);
+    $output = $tmpl->output;
+
 } elsif( $output_format eq 'json' ) {
     binmode STDOUT, ':encoding(UTF-8)';
-    say encode_json {
+    $output = encode_json {
         boards => \@rendered_boards,
         steps => \@items,
         info => \@info,
     };
 }
+
+my $out;
+if ($output_file) {
+    open $out, '>:utf8', $output_file
+        or die "Couldn't create '$output_file': $!";
+} else {
+    $out = \*STDOUT;
+};
+print { $out } $output;
+
+__DATA__
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Release manager dashboard for <TMPL_VAR NAME="our_version"></title>
+<style>
+html {
+  font-size: medium;
+}
+
+body {
+  background-color: #fffff6;
+  color: #330;
+  font-family: georgia, times, serif;
+  margin: 2rem auto 8rem;
+  max-width: 40em;
+  padding: 0 2em;
+  width: auto;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+a {
+  color: #1e6b8c;
+  font-size: 1em;
+  text-decoration: none;
+  transition-delay: 0.1s;
+  transition-duration: 0.3s;
+  transition-property: color, background-color;
+  transition-timing-function: linear;
+}
+
+a:visited {
+  color: #6f32ad;
+  font-size: 1em;
+}
+
+a:hover {
+  background: #f0f0ff;
+  font-size: 1em;
+  text-decoration: underline;
+}
+
+a:active {
+  background-color: #427fed;
+  color: #fffff6;
+  color: white;
+  font-size: 1em;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: #703820;
+  font-weight: bold;
+  line-height: 1.2;
+  margin-bottom: 1em;
+  margin-top: 2em;
+}
+
+h1 {
+  font-size: 2.2em;
+  text-align: center;
+}
+
+h2 {
+  font-size: 1.8em;
+  border-bottom: solid 0.1rem #703820;
+}
+
+h3 {
+  font-size: 1.5em;
+}
+
+h4 {
+  font-size: 1.3em;
+  text-decoration: underline;
+}
+
+h5 {
+  font-size: 1.2em;
+  font-style: italic;
+}
+
+h6 {
+  font-size: 1.1em;
+  margin-bottom: 0.5rem;
+  color: #330;
+}
+
+pre,
+code,
+xmp {
+  font-family: courier;
+  font-size: 1.1rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+img {
+  margin: 2em auto;
+  padding: 1em;
+  outline: solid 1px #ccc;
+  max-width: 90%;
+  }</style>
+<body>
+<h1>Release manager dashboard</h1>
+<small>Last updated: <TMPL_VAR NAME="timestamp"> UTC</small>
+<TMPL_LOOP NAME="info"><p><TMPL_VAR NAME="line"></p></TMPL_LOOP>
+
+<TMPL_LOOP NAME="boards">
+<h2><TMPL_VAR NAME="name"></h2>
+<table>
+<thead><tr>
+    <TMPL_LOOP NAME="header"><td><TMPL_VAR NAME="col"></td></TMPL_LOOP>
+</tr></thead>
+    <tbody>
+    <TMPL_LOOP NAME="content">
+    <tr><TMPL_LOOP NAME="row"><td><TMPL_VAR NAME="col"></td></TMPL_LOOP></tr>
+    </TMPL_LOOP>
+</tbody>
+</table>
+</TMPL_LOOP>
+
+<h2>Release progress</h2>
+<table>
+<tbody>
+<TMPL_LOOP NAME="steps">
+<tr>
+    <td><TMPL_VAR NAME="done"></td>
+    <td><a href="<TMPL_VAR NAME='url'>"><TMPL_VAR NAME="name"></a></td>
+    <td><TMPL_VAR NAME="action"></td>
+</tr>
+</TMPL_LOOP>
+</tbody>
+</table>
+
+<footer>
+<small>Created by <a href="https://github.com/Corion/App-rmg-tools">Perl release manager dashboard</a></small>
+</footer>
+</body>
+</html>
