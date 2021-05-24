@@ -283,7 +283,7 @@ my @steps = (
                 return "Rebuild ./perl, @newer is newer"
             };
 
-            my $v = [run("$build_dir/perl", '-wE', 'say $]')]->[0];
+            my $v = [run("$build_dir/perl", "-I$build_dir/lib", '-wE', 'say $]')]->[0];
             if( $v != $our_version_num) {
                 return "Wrong Perl version was built ($v, expected $our_version)";
             };
@@ -316,7 +316,7 @@ my @steps = (
         files => ["pod/perldelta.pod"],
         test => sub( $self ) {
             # We want/need ./perl as a prerequisite
-                my $new = join "\n", run("./perl", "Porting/acknowledgements.pl", "$previous_tag..HEAD");
+                my $new = join "\n", run("./perl", "-Ilib", "Porting/acknowledgements.pl", "$previous_tag..HEAD");
                 $new =~ s!\s+$!!;
                 my $old = pod_section('pod/perldelta.pod', 'Acknowledgements');
 
