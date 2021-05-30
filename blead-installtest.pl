@@ -111,7 +111,7 @@ my $cpan = "$perldir/cpan$perltoolstr";
 
 ok system( $cpanm, 'DBD::SQLite' ) == 0, "DBD::SQLite installs (with DBI, via cpanm)";
 
-ok run( $cpanm, install => "Inline::C", '--global' ) == 0, "Inline::C installs"
+ok run( $cpanm, "Inline::C", '--global' ) == 0, "Inline::C installs"
     or diag "Failed: $! / $?";
 # Inline::C
 ok run( "$perldir/perl$perltoolstr", "-Ilib", "-lwe", q{use Inline C => q[int f() { return 42;}]; print f}) == 0,
