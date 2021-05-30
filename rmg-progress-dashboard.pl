@@ -12,6 +12,7 @@ use Getopt::Long;
 use IPC::Run3;
 use Text::Table;
 use JSON::PP;
+use HTTP::Tiny;
 
 GetOptions(
     'build-dir|d=s' => \my $build_dir,
@@ -161,8 +162,13 @@ sub pod_section( $filename, $section ) {
     return join "\n", @section;
 }
 
+my $ua;
 sub http_exists( $url ) {
-    return 0
+    $ua //= HTTP::Tiny->new();
+    my $response = $ua->head($url);
+    # We don't handle redirects here, and don't report them as success ...
+    warn Dumper $response;
+    return $response->{status} =~ /^2\d\d$/;
 }
 
 my @tag = git('describe','--abbrev=0');
