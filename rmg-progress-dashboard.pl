@@ -28,7 +28,12 @@ GetOptions(
 
 =head1 SYNOPSIS
 
+  cd bleadperl
   watch -n 10 /usr/bin/perl ../App-rmg-tools/rmg-progress-dashboard.pl --version 5.35.1
+
+If you prefer an HTML file, you can automatically update it using
+
+  while /bin/true; do ../App-rmg-tools/rmg-progress-dashboard.pl --version 5.35.1 -o /tmp/release-5.35.1.html; sleep; done
 
 =cut
 
@@ -347,6 +352,7 @@ my @steps = (
     {
         name => 'perldelta is clean',
         files => ["pod/perldelta.pod"],
+        reference => 'final check of perldelta placeholders',
         test => sub( $self ) {
                 (my $bad) = grep { /\bXXX\b|^\s*\[/ } lines('pod/perldelta.pod');
                 if ($bad) {
@@ -357,6 +363,7 @@ my @steps = (
     {
         name => "release was added to perlhist.pod",
         files => ["pod/perlhist.pod"],
+        reference => 'update perlhist.pod',
         test => sub( $self ) {
                 # Perlhist.pod has yet another date format, instead of yyyy-mm-dd
                 # We ignore that
@@ -392,6 +399,16 @@ my @steps = (
 
                 }
                 ()
+        },
+    },
+    {
+        name => "Test that the current Perl builds and installs as /tmp/perl-$our_version-pretest",
+        reference => 'build, test and check a fresh perl',
+        test => sub {
+                my $target = "/tmp/perl-$our_version-pretest";
+                if( ! -d $target) {
+                    return "Build and install using ./Configure -des -Dusedevel -Dprefix=/tmp/perl-5.x.y-pretest"
+                };
         },
     },
     {
@@ -489,6 +506,7 @@ my @steps = (
     },
     {
         name => 'Release branch merged back to blead',
+        reference => 'merge release branch back to blead',
         test => sub {
             my $branch = git_branch();
             if( $branch ne 'blead') {
