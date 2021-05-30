@@ -439,11 +439,16 @@ my @steps = (
     },
     {
         name => "release tarball published for testing",
+        reference => 'Copy the tarball to a web server',
         files => ["$build_dir/../$our_tarball_xz"],
         test => sub {
             # Do we want to make an HTTP call every time?!
             # Or only do that if the release tarball exists, and then
             # check that they are identical!
+                if( ! file_exists( "../$our_tarball_xz" )) {
+                    return "Build the release tarball $our_tarball_xz"
+                };
+
                 if( my @newer = file_newer_than( "../$our_tarball_xz", "./perl" )) {
                     return "Rebuild ../$our_tarball_xz, @newer is newer"
                 }
@@ -459,6 +464,9 @@ my @steps = (
             # Do we want to make an HTTP call every time?!
             # Or only do that if the release tarball exists, and then
             # check that they are identical!
+                if( ! file_exists( "../$our_tarball_xz" )) {
+                    return "Build the release tarball $our_tarball_xz"
+                };
                 if(! http_exists("https://www.cpan.org/authors/id/$cpan_author_url/$our_tarball_xz")) {
                     return "Upload the tarball to CPAN"
                 };
@@ -466,6 +474,7 @@ my @steps = (
     },
     {
         name => 'Release schedule ticked and committed',
+        reference => 'Release schedule',
         test => sub {
             if( ! $planned_release->{released} ) {
                 return "Tick the release mark";
