@@ -1,5 +1,8 @@
 #!perl
 use 5.020;
+use feature 'signatures';
+no warnings 'experimental::signatures';
+
 use File::Temp 'tempdir';
 use Cwd;
 use File::Basename;
@@ -31,7 +34,8 @@ our $perldir;
 our $builddir;
 our $perltoolstr;
 BEGIN {
-    $libdir = tempdir();
+    $libdir = tempdir( CLEANUP => 1 );
+    #$libdir = tempdir( );
     $perldir = dirname($^X);
     ($] * 1_000_000) =~/^(\d+)(\d{3})(\d{3})$/
         and $perltoolstr = sprintf "%d.%d.%d", $1, $2, $3;
@@ -56,6 +60,10 @@ plan tests => 3;
 
     # Run the RMG installation tests
     /tmp/perl/bin/perl5.33.5 ../blead-installtest.pl
+
+Alternatively, run this script using the included
+
+    run-blead-installtest.sh
 
 Run this script with the freshly installed bleadperl to test installing
 
@@ -83,11 +91,21 @@ print $fh $ll_content->{content};
 #say Dumper $ll_content;
 close $fh;
 
+sub run( @cmd ) {
+    note "Running [@cmd]";
+    return system( @cmd )
+}
+
+sub run_or_die( @cmd ) {
+    run(@cmd) == 0 or die $?;
+}
+
 chdir $libdir or die "'$libdir': $!";
-system("tar", "xf", "ll.tar.gz");
+run("tar", "xf", "ll.tar.gz");
 chdir "$libdir/local-lib-2.000029/" or die "'$libdir': $!";
-system( $^X, "Makefile.PL", "--bootstrap", $libdir );
-system( $Config{make}, "install" );
+# Install local::lib into $libdir ( a temp directory )
+run_or_die( $^X, "Makefile.PL", "--bootstrap=$libdir" );
+run_or_die( $Config{make}, "install" );
 
 unshift @INC, "$libdir/local-lib-2.000029/lib";
 
@@ -95,11 +113,8 @@ unshift @INC, "$libdir/local-lib-2.000029/lib";
 require local::lib;
 local::lib->import( $libdir );
 local::lib->setup_env_hash_for( $libdir );
-
-sub run {
-    note "@_";
-    system( @_ )
-}
+push @INC, local::lib->lib_paths_for($libdir);
+$ENV{PERL5LIB} = join ":", local::lib->lib_paths_for($libdir);
 
 my $cpanm_content = HTTP::Tiny->new()->get('http://cpanmin.us');
 my $cpanm = "$libdir/bin/cpanm";
@@ -115,12 +130,18 @@ my $cpan = "$perldir/cpan$perltoolstr";
 #my $cpm = "$libdir/bin/cpm";
 #ok -x $cpm, "cpm binary exists";
 
-ok system( $cpanm, 'DBD::SQLite' ) == 0, "DBD::SQLite installs (with DBI, via cpanm)";
+ok system( $cpanm, '-l', $libdir, '--notest', 'DBD::SQLite' ) == 0, "DBD::SQLite installs (with DBI, via cpanm)";
 
-ok run( $cpanm, "Inline::C", '--global' ) == 0, "Inline::C installs"
+# I don't know where on my system this still gets found, so we force-reinstall it locally
+run( $cpanm, '-l', $libdir, "--notest", '--reinstall', "Parse::RecDescent" );
+ok run( $cpanm, '-l', $libdir, "--notest", "Parse::RecDescent", "Inline::C" ) == 0, "Inline::C installs"
     or diag "Failed: $! / $?";
+
+chdir($libdir);
+# use Cwd;
+
 # Inline::C
-ok run( "$perldir/perl$perltoolstr", "-Ilib", "-lwe", q{use Inline C => q[int f() { return 42;}]; print f}) == 0,
+ok run( "$perldir/perl$perltoolstr", "-lwe", q{use Inline C => q[int f() { return 42;}]; print f}) == 0,
     "Inline::C works";
 #    42
 
@@ -133,3 +154,8 @@ chdir( $builddir );
 #ok(system("$Config{make} -f Makefile.micro") == 0, "We can create microperl");
 
 done_testing;
+
+# So File::Temp can clean up
+chdir "/" or die "chdir '/': $!";
+
+
