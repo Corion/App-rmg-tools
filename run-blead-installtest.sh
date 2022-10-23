@@ -1,4 +1,5 @@
 #!/bin/bash
+BASE=$(cd $(dirname $0); pwd)
 
 # This builds and runs bleadperl, highly convenient in the run-up to
 # a developer release of Perl
@@ -30,8 +31,6 @@ unset PERL_MM_OPT
 export PERL_TEST_HARNESS_ASAP=1
 export HARNESS_OPTIONS=j8
 export MAKEFLAGS=-j12
-
-BASE=$(cd $(dirname $0); pwd)
 
 for conf in "" "-Dusethreads" "-Duserrelocatableinc" ; do
     echo -en "\e]2;Building $VERSION $conf\a"
