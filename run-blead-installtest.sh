@@ -10,15 +10,13 @@ BLEADPERL=${1-$PWD}
 # roundabout... Also, we require a Perl to be available already:
 cd "$BLEADPERL"
 VERSION=$(perl -E 'require "./Porting/pod_lib.pl"; my $state=get_pod_metadata(); say sprintf "%d.%d.%d", @{$state->{delta_version}}')
+# Update the terminal title with the config
+echo "Building $VERSION"
+echo -en "\e]2;Building $VERSION\a"
 
 # Should we clean and pull?!
 git clean -dfX
 git pull
-
-echo "Building $VERSION"
-
-# Update the terminal title with the config
-echo -en "\e]30;Building $VERSION\a"
 
 # clean out all the various local Perl modifications you might have.
 # We do this so the fresh Perl gets built clean and doesn't pollute your
@@ -36,7 +34,7 @@ export MAKEFLAGS=-j12
 BASE=$(cd $(dirname $0); pwd)
 
 for conf in "" "-Dusethreads" "-Duserrelocatableinc" ; do
-    echo -en "\e]30;Building $VERSION $conf\a"
+    echo -en "\e]2;Building $VERSION $conf\a"
     rm config.sh Policy.sh
     if ! (   ./Configure -Dusedevel -des $conf -Dprefix=/tmp/perl-$VERSION \
           && make test_harness \
@@ -44,8 +42,8 @@ for conf in "" "-Dusethreads" "-Duserrelocatableinc" ; do
           && /tmp/perl-$VERSION/bin/perl$VERSION "$BASE/blead-installtest.pl" \
         ) ; then
         echo "Config '$conf' failed: $?"
-        echo -en "\e]30;Building $VERSION $conf - failed\a"
+        echo -en "\e]2;Building $VERSION $conf - failed\a"
         break
     fi
-    echo -en "\e]30;Building $VERSION $conf - OK\a"
+    echo -en "\e]2;Building $VERSION $conf - OK\a"
 done
