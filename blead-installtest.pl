@@ -68,7 +68,8 @@ your main bleadperl installation clean.
 
 diag "Running with $^X";
 
-my $ll_content = HTTP::Tiny->new()->get('http://cpan.metacpan.org/authors/id/H/HA/HAARG/local-lib-2.000024.tar.gz');
+# Maybe this should be a link to the most recent version?!
+my $ll_content = HTTP::Tiny->new()->get('http://cpan.metacpan.org/authors/id/H/HA/HAARG/local-lib-2.000029.tar.gz');
 my $ll = "$libdir/ll.tar.gz";
 open my $fh, '>:raw', $ll
     or die "'$ll': $!";
@@ -79,11 +80,11 @@ close $fh;
 
 chdir $libdir or die "'$libdir': $!";
 system("tar", "xf", "ll.tar.gz");
-chdir "$libdir/local-lib-2.000024/" or die "'$libdir': $!";
+chdir "$libdir/local-lib-2.000029/" or die "'$libdir': $!";
 system( $^X, "Makefile.PL", "--bootstrap", $libdir );
 system( $Config{make}, "install" );
 
-unshift @INC, "$libdir/local-lib-2.000024/lib";
+unshift @INC, "$libdir/local-lib-2.000029/lib";
 
 # Set up our private local::lib in the temporary directory
 require local::lib;
