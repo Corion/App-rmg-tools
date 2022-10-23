@@ -358,7 +358,7 @@ my @steps = (
         files => ["pod/perldelta.pod"],
         reference => 'final check of perldelta placeholders',
         test => sub( $self ) {
-                (my $bad) = grep { /\bXXX\b|^\s*\[/ } lines('pod/perldelta.pod');
+                (my $bad) = grep { /\bXXX\b|^\s*\[[^L]/ } lines('pod/perldelta.pod');
                 if ($bad) {
                     return "Fix '$bad'"
                 };
