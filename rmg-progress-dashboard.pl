@@ -441,6 +441,24 @@ my @steps = (
         },
     },
     {
+        name => "local installation of $previous_version exists at /tmp/perl-$previous_version",
+        reference => 'Compare the installed paths to the last release',
+        test => sub {
+            # Well, this should also be newer than all other
+            # files here
+            my $target = "/tmp/perl-$previous_version/bin/perl$previous_version";
+            if( !file_exists( $target )) {
+                return "Locally install $previous_version"
+            };
+
+            if( my @newer = file_newer_than( $target, "./perl" )) {
+                    return "Retest local installation, @newer is newer"
+            };
+
+            ()
+        },
+    },
+    {
         name => "local installation of $our_version exists at /tmp/perl-$our_version",
         reference => 'test the tarball',
         test => sub {
