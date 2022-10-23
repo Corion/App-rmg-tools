@@ -26,6 +26,10 @@ GetOptions(
     'output-file|o=s' => \my $output_file,
 );
 
+# We will shell out to the fresh Perl, so be certain not to pollute it
+# with our local modules
+delete @ENV{qw( PERL5LIB PERL_MB_OPT PERL_LOCAL_LIB_ROOT PERL_MM_OPT )};
+
 =head1 SYNOPSIS
 
   cd bleadperl

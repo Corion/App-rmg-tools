@@ -4,6 +4,7 @@ use File::Temp 'tempdir';
 use Cwd;
 use File::Basename;
 use HTTP::Tiny;
+use File::Spec;
 use Config '%Config';
 
 =head1 NAME
@@ -32,12 +33,16 @@ our $perltoolstr;
 BEGIN {
     $libdir = tempdir();
     $perldir = dirname($^X);
-    #$perldir = tempdir();
     ($] * 1_000_000) =~/^(\d+)(\d{3})(\d{3})$/
         and $perltoolstr = sprintf "%d.%d.%d", $1, $2, $3;
+    warn "Using tools from '$perltoolstr'";
 };
 
 delete @ENV{qw( PERL5LIB PERL_MB_OPT PERL_LOCAL_LIB_ROOT PERL_MM_OPT )};
+
+# Remove all other Perl paths from $ENV{PATH}
+my $envsep = $^O eq 'MSWin32' ? ';' : ':';
+$ENV{PATH} = join $envsep, grep { !/perl/i } File::Spec->path;
 
 use Test::More;
 
