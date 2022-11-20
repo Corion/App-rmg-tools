@@ -464,7 +464,7 @@ my @steps = (
                 return "Locally install $previous_version"
             };
 
-            if( my @newer = file_newer_than( $target, "./perl" )) {
+            if( my @newer = file_newer_than( "./perl", $target )) {
                     return "Retest local installation, @newer is newer"
             };
 
