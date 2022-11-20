@@ -55,9 +55,9 @@ my $cpan_author_url = join "/", substr($cpan_user,0,1), substr($cpan_user,0,2), 
 sub file_exists( $fn, $dir = $build_dir ) {
     if( $fn =~ m!^/! ) {
         # absolute filename, sorry Windows users
-        -f $fn
+        return -f $fn
     } else {
-        -f "$build_dir/$fn"
+        return -f "$build_dir/$fn"
     }
 }
 
