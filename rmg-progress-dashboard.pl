@@ -260,6 +260,12 @@ my @boards = (
             };
             push @res, $curr if $curr and $curr->{name};
 
+            if( ! @res) {
+                $self->{name} = 'No CPAN modules newer than blead';
+            } else {
+                $self->{name} = 'CPAN modules newer than blead';
+            };
+
             return ['Module','Perl','CPAN'], [map { [$_->{name}, $_->{perl}, $_->{cpan}] } @res]
         },
     },
