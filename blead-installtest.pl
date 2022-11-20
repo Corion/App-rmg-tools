@@ -131,6 +131,7 @@ my $cpan = "$perldir/cpan$perltoolstr";
 #ok -x $cpm, "cpm binary exists";
 
 ok system( $cpanm, '-l', $libdir, '--notest', 'DBD::SQLite' ) == 0, "DBD::SQLite installs (with DBI, via cpanm)";
+ok system( $cpanm, '-l', $libdir, '--notest', 'Sereal' ) == 0, "Sereal (via cpanm)";
 
 # I don't know where on my system this still gets found, so we force-reinstall it locally
 run( $cpanm, '-l', $libdir, "--notest", '--reinstall', "Parse::RecDescent" );
