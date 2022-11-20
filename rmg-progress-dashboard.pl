@@ -236,6 +236,10 @@ my @boards = (
         name => 'CPAN modules newer than blead',
         reference => 'dual life CPAN module synchronisation',
         list => sub {
+            my( $self ) = @_;
+            local %ENV = %ENV;
+            delete @ENV{ qw(PERL5LIB PERL_MB_OPT PERL_MM_OPT PERL_LOCAL_LIB_ROOT)};
+
             my @items = run("./perl", "-Ilib", "Porting/core-cpan-diff", "-x", "-a");
             my %items;
             my $curr;
