@@ -69,9 +69,11 @@ sub file_newer_than( $fn, $reference ) {
         $fn = [$fn]
     };
     # Yay quadratic behaviour
+    my %mtime = map { $_ => -M $_ } (@$fn, @$reference);
     map {
         my $f = $_;
-        grep { -M $f >= -M $_ } @$reference
+        warn $f if ! -f $f;
+        grep { warn $_ if ! -f $_; $mtime{ $f } >= $mtime{ $_ }} @$reference
     } @$fn
 }
 
