@@ -592,7 +592,7 @@ my @steps = (
 # Collect the dashboard(s)
 my @rendered_boards;
 for my $board (@boards) {
-    my ($header,$items) = $board->{list}->();
+    my ($header,$items) = $board->{list}->($board);
 
     push @rendered_boards, {
         board => $board,
@@ -630,8 +630,8 @@ if( $output_format eq 'text' ) {
             my $table = Text::Table->new( @$header );
             $table->load( @$items );
             $output .= $table . "\n";
-        } else {
-            $output .= "- none -\n";
+        #} else {
+        #    $output .= "- none -\n";
         };
     };
     my $table = Text::Table->new();
