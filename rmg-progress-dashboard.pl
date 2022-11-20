@@ -690,6 +690,7 @@ if ($output_file) {
         or die "Couldn't create '$output_file': $!";
 } else {
     $out = \*STDOUT;
+    binmode $out, ':encoding(UTF-8)';
 };
 print { $out } $output;
 
