@@ -177,7 +177,7 @@ sub http_exists( $url ) {
     $ua //= HTTP::Tiny->new();
     my $response = $ua->head($url);
     # We don't handle redirects here, and don't report them as success ...
-    warn Dumper $response;
+    #warn Dumper $response;
     return $response->{status} =~ /^2\d\d$/;
 }
 
