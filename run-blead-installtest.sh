@@ -11,6 +11,11 @@ BLEADPERL=${1-$PWD}
 # roundabout... Also, we require a Perl to be available already:
 cd "$BLEADPERL"
 VERSION=$(perl -E 'require "./Porting/pod_lib.pl"; my $state=get_pod_metadata(); say sprintf "%d.%d.%d", @{$state->{delta_version}}')
+
+if [ x"$VERSION" -eq x ]; then
+    echo "No version found?!"
+fi
+
 # Update the terminal title with the config
 echo "Building $VERSION"
 echo -en "\e]2;Building $VERSION\a"
