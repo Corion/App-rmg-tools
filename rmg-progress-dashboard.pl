@@ -240,7 +240,7 @@ my @boards = (
         list => sub {
             my( $self ) = @_;
 
-            my @items = run("./perl", "-Ilib", "Porting/core-cpan-diff", "-x", "-a");
+            my @items = run("$build_dir/perl", "-Ilib", "Porting/core-cpan-diff", "-x", "-a");
             my %items;
             my $curr;
             my @res;
