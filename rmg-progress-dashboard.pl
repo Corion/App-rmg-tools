@@ -111,7 +111,6 @@ sub commit_message_exists($message, %options) {
     # a git commit. Some other day
     # Also, we only want to list the commits since the previous release tag
 
-
     my @opts;
     if( my $since = $options{ since } ) {
         push @opts, join '..', $since, 'HEAD';
@@ -134,6 +133,10 @@ sub commit_message_exists($message, %options) {
     return @list
 }
 
+# Check that two commits touch the same files, with fairly identical changes
+sub commit_like($this_commit, $other_commit) {
+}
+
 sub parse_release_schedule($dir=$build_dir,$file="Porting/release_schedule.pod") {
     # This currently silently skips versions with an undeterminate release
     # date like
@@ -152,6 +155,10 @@ sub git_branch {
 
 sub uncommited_changes(@files) {
     git(status => '--porcelain=v2', '--', @files)
+}
+
+sub perl_v( $perl="$build_dir/perl" ) {
+    grep { /^This is/ } run($perl, '-v')
 }
 
 sub pod_section( $filename, $section ) {
@@ -271,6 +278,11 @@ my @boards = (
     },
 );
 
+# how can we handle if a later step has happened but a previous step seems to have undone that?!
+# a) Create an intricate data structure/workflow graph to model the transitions
+# b) Add "milestones" that act as points of no return. "git push" is such a milestone, and a close
+#    cousin is creating the appropriate git tag/git commit
+
 my @steps = (
     {
         name => 'Release branch created',
@@ -297,6 +309,7 @@ my @steps = (
             };
             if( -f "$build_dir/perl" ) {
                 # should we check that the files are older than ./perl?
+                # we should also check that the current Perl has the version number we expect
             };
             ()
         },
@@ -341,6 +354,7 @@ my @steps = (
                 )) {
                     return "Update Module::CoreList, commit the changes"
                 }
+                # Check that the commit is like the other commits for that
         },
     },
     {
@@ -418,16 +432,37 @@ my @steps = (
     },
     {
         name => "Test that the current Perl builds and installs as /tmp/perl-$our_version-pretest",
+        action => sub( $self ) {
+            run('./Configure -des -Dusedevel && make test && make install');
+        },
         reference => 'build, test and check a fresh perl',
         test => sub {
                 my $target = "/tmp/perl-$our_version-pretest";
                 if( ! -d $target) {
-                    return "Build and install using ./Configure -des -Dusedevel -Dprefix=/tmp/perl-5.x.y-pretest"
+                    return "Build and install using ./Configure -des -Dusedevel -Dprefix=$target"
                 };
+
+                # Check that we installed the correct version:
+                my $target_perl = "$target/bin/perl$our_version";
+                my $v = perl_v( $target_perl );
+                if( $v !~ /\Q$our_version\E/ ) {
+                    return "!!! $target_perl returns the wrong version ($v)"
+                }
+
+                my $git_head = git('describe');
+                if( $v !~ /\Q$git_head\E/ ) {
+                    return "!!! $target_perl returns wrong git commit ($v)"
+                }
         },
     },
+    # here the -pretest directory gets deleted, and we won't know where
+    # we stand...
     {
-        name => "tag for $our_tag is created",
+        name => "tag for $our_version is created",
+        action => sub( $self ) {
+            git( tag => $our_version, '-m', "y-1 release of the 5.xx series" );
+        },
+        type => 'milestone',
         test => sub {
                 if( ! git( tag => '-l', $our_tag )) {
                     return "Create the release tag $our_tag"
@@ -487,6 +522,17 @@ my @steps = (
             ()
         },
     },
+    {
+        name => "Compare the installed paths to the last release",
+        reference => 'Compare the installed paths to the last release',
+        test => sub {
+            my $target = "/tmp/perl-$our_version/bin/perl$our_version";
+            if( !file_exists( "/tmp/f1", "/tmp/f2" )) {
+                return "Run the file comparison"
+            };
+        },
+    },
+
     {
         name => "release tarball published for testing",
         reference => 'Copy the tarball to a web server',
@@ -555,6 +601,7 @@ my @steps = (
     {
         name => 'Release tag pushed upstream',
         reference => 'publish the release tag',
+        type => 'milestone',
         test => sub {
             my $branch = git_branch();
             if( $branch ne 'blead' ) {
