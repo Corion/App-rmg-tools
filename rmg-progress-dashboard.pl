@@ -694,6 +694,9 @@ if ($output_file) {
 };
 print { $out } $output;
 
+# It would be nice to have links/further information for each action
+# be displayable right next to it
+
 __DATA__
 <!DOCTYPE html>
 <html>
