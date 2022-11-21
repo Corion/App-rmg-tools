@@ -570,6 +570,26 @@ my @steps = (
         },
     },
     {
+        name => "epigraphs.pod was updated",
+        files => ["Porting/epigraphs.pod"],
+        reference => "Add epigraph for $our_version",
+        test => sub( $self ) {
+                my $version = $our_tag =~ s/^v//r;
+                (my $this) = grep { /\Q$version\E/ } lines( 'Porting/epigraphs.pod' );
+
+                if( ! $this ) {
+                    return "version $version not added";
+                };
+
+                if( ! commit_message_exists( "Add epigraph for $our_version",
+                    since => $previous_tag,
+                    author => $git_author,
+                )) {
+                    return "Commit changes to 'Porting/epigraphs.pod'";
+                };
+        },
+    },
+    {
         name => 'Version number bumped for next dev release',
         type => 'BLEAD-POINT',
         reference => 'bump version',
