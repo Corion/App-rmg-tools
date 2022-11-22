@@ -657,7 +657,7 @@ my @steps = (
     },
     {
         name => 'Version number bumped for next dev release',
-        type => 'BLEAD-POINT',
+        release_type => 'BLEAD-POINT',
         reference => 'bump version',
         test => sub {
             my $branch = git_branch();
