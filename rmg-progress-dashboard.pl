@@ -617,6 +617,21 @@ my @steps = (
         },
     },
     {
+        name => 'Release branch deleted',
+        reference => 'delete release branch',
+        test => sub {
+            my $branch = git_branch();
+            if( $branch ne 'blead') {
+                return "Switch back to blead";
+            }
+            my @branches = grep { $_ eq $release_branch } git( branch => '-l' );
+            if( @branches ) {
+                return "Delete branch $release_branch";
+            };
+            ()
+        },
+    },
+    {
         name => "epigraphs.pod was updated",
         files => ["Porting/epigraphs.pod"],
         reference => "Add epigraph for $our_version",
