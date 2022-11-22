@@ -777,7 +777,7 @@ if( $output_format eq 'text' ) {
         my %i = %$_;
         $i{reference} //= '';
         $i{url} = 'https://metacpan.org/pod/distribution/perl/Porting/release_managers_guide.pod#' . ($i{reference} =~ s/\s+/-/gr);
-        my $v_done = $_->{done} ? "\N{CHECK MARK}" : "";
+        my $v_done = $_->{done};
         $i{done} = $v_done;
         delete @i{qw[reference list]};
         \%i
