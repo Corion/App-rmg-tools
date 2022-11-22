@@ -669,18 +669,54 @@ for my $board (@boards) {
     };
 }
 
+my %status_cache;
+sub step_status( $step ) {
+	if (! exists $status_cache{ $step }) {
+		local $|=1;
+		my $msg = $step->{name};
+		print $msg;
+		my $action = $step->{test}->($step);
+		my $name = $step->{name};
+		$status_cache{ $step } = {
+			done => ( !$action ? "\N{CHECK MARK}" : " "),
+			name => $name,
+			action => $action,
+			step => $step,
+			reference => $step->{reference},
+		};
+		print "\r" . (" " x length($msg)). "\r";
+	}
+	return $status_cache{ $step };
+}
+
+# Now, find the last milestone whose condition is met
+my @milestones = grep { $_->{done} eq "\N{CHECK MARK}" }
+                 map  { step_status($_) }
+                 grep { $_->{type} and $_->{type} eq 'milestone' } @steps;
+my $last_milestone = $milestones[-1] || 0;
+
 # A list of files that need to be newer (or same) than the previous, in sequence
 my @up_to_date_files;
 my @items;
+my $before_milestone = $last_milestone > 0;
 for my $step (@steps) {
-    my $action = $step->{test}->($step);
-    my $name = $step->{name};
-    push @items, {
-        done => !$action,
-        name => $name,
-        action => $action,
-        reference => $step->{reference},
-    };
+	if(    $last_milestone
+		&& $step == $last_milestone->{step} ) {
+		$before_milestone = 0;
+	};
+	
+	my $s;
+	if( $before_milestone ) {
+		$s = {
+			done      => '-',
+			name      => $step->{name},
+			action    => "<cannot change anymore>",
+			reference => $step->{reference},
+		};
+	} else {
+		$s = step_status( $step );
+	}
+    push @items, $s;
 }
 
 my $output = '';
@@ -703,7 +739,7 @@ if( $output_format eq 'text' ) {
     };
     my $table = Text::Table->new();
     my @rendered_items = map {
-        my $v_done = $_->{done} ? "[\N{CHECK MARK}]" : "[ ]";
+        my $v_done = "[$_->{done}]";
         [$v_done, $_->{name}, $_->{action}]
     } @items;
     $table->load( @rendered_items );
