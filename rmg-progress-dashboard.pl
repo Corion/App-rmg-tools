@@ -39,6 +39,10 @@ If you prefer an HTML file, you can automatically update it using
 
   while /bin/true; do ../App-rmg-tools/rmg-progress-dashboard.pl --version 5.35.1 -o /tmp/release-5.35.1.html; sleep; done
 
+If you are interested in using the output of the program otherwise, consider JSON output
+
+  ../App-rmg-tools/rmg-progress-dashboard.pl --version 5.35.1 --format json | ...
+
 =cut
 
 my $today = strftime '%Y-%m-%d', localtime;
