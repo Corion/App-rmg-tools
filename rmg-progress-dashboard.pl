@@ -170,7 +170,7 @@ sub pod_section( $filename, $section ) {
     # Trim the section
     if( @section ) {
         pop @section if $section[-1] =~ /^=/;
-        shift @section; # remove the hading
+        shift @section; # remove the heading
         pop @section
             while $section[-1] =~ /^\s*$/;
         shift @section
