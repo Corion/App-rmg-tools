@@ -15,9 +15,11 @@ fi
 # Find the current version of Perl we will build. This is maybe a bit
 # roundabout... Also, we require a Perl to be available already:
 cd "$BLEADPERL"
-VERSION=$(perl -E 'require "./Porting/pod_lib.pl"; my $state=get_pod_metadata(); say sprintf "%d.%d.%d", @{$state->{delta_version}}')
+# Hmm ... this reports 5.39.7 on a 5.39.6 bleadperl...
+DEFAULT_VERSION=$(perl -E 'require "./Porting/pod_lib.pl"; my $state=get_pod_metadata(); say sprintf "%d.%d.%d", @{$state->{delta_version}}')
+VERSION=${2-$DEFAULT_VERSION}
 
-if [ x"$VERSION" -eq x ]; then
+if [[ -z "$VERSION" ]]; then
     echo "No version found?!"
 fi
 
