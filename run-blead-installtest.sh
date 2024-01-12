@@ -42,6 +42,7 @@ unset PERL_MM_OPT
 # Speed up the build
 export PERL_TEST_HARNESS_ASAP=1
 export HARNESS_OPTIONS=j8
+export TEST_JOBS=8
 export MAKEFLAGS=-j12
 
 for conf in "" "-Dusethreads" "-Duserrelocatableinc" ; do
