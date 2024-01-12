@@ -50,7 +50,7 @@ $ENV{PATH} = join $envsep, grep { !/perl/i } File::Spec->path;
 
 use Test::More;
 
-plan tests => 3;
+plan tests => 4;
 
 =head1 SYNOPSIS
 
