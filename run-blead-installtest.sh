@@ -4,6 +4,9 @@ BASE=$(cd $(dirname $0); pwd)
 # This builds and runs bleadperl, highly convenient in the run-up to
 # a developer release of Perl
 
+# Maybe this could be ported to Perl instead of being a moderately
+# complex shell script ...
+
 # We assume bash, so $PWD is set ...
 BLEADPERL=${1-$PWD}
 
