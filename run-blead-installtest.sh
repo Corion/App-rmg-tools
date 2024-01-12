@@ -7,6 +7,11 @@ BASE=$(cd $(dirname $0); pwd)
 # We assume bash, so $PWD is set ...
 BLEADPERL=${1-$PWD}
 
+if [ ! -f "$BLEADPERL/Configure" ]; then
+    echo "'$BLEADPERL/Configure' not found - is this the right directory?"
+    exit
+fi
+
 # Find the current version of Perl we will build. This is maybe a bit
 # roundabout... Also, we require a Perl to be available already:
 cd "$BLEADPERL"
