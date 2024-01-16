@@ -1,0 +1,146 @@
+#!/usr/bin/perl
+use 5.020;
+use Digest::MD5 'md5_hex';
+use File::Copy 'cp';
+use File::Path 'make_path', 'rmtree';
+use File::Basename;
+
+=head1 NAME
+
+cacheConfigure - Faster Metaconf by caching
+
+=head1 SYNOPSIS
+
+  sh .../cacheConfigure -- ./Configure -des -Dusedevel -Uusedl
+
+=cut
+
+use Getopt::Long;
+GetOptions(
+    'cache|c=s' => \my $cache_dir,
+    'dry-run|n' => \my $dry_run,
+    'verbose'   => \my $verbose,
+) or pod2usage(2);
+
+$cache_dir //= (  $ENV{XDG_CACHE_HOME}
+               || $ENV{TEMP}
+               || '/tmp') . '/cacheConfigure';
+
+my @cmd = @ARGV;
+
+# This needs more work:
+my @envvars = (qw(CC MAKE LD_LIBRARY_PATH));
+my @files = sort ('Configure', 'cflags.SH', glob 'hints/*.sh');
+
+# Find this list by looking at `git clean -dfX` after a Configure run
+my @cache_files = (
+    'Makefile', 'Policy.sh', 'bitcount.h', 'cflags', 'config.h', 'config.sh',
+    'generate_uudmap', 'generate_uudmap.o',
+    'makedepend',
+    'makedepend_file',
+    'makefile',
+    'mg_data.h',
+    'myconfig',
+    'opmini.c',
+    'perlmini.c',
+    'pod/Makefile',
+    'runtests',
+    'universalmini.c',
+    'uudmap.h',
+);
+
+my $error;
+
+my $digest = Digest::MD5->new();
+# We don't actually want to keep @ARGV
+#$digest->add( join "\0", @ARGV );
+$digest->add( join "\0", @envvars, @ENV{@envvars} );
+
+for my $file (@files) {
+    if(open my $fh, '<:raw', $file) {
+        $digest->addfile( $fh );
+    } else {
+        say "Error on $file: $!";
+        $error = 1;
+        last;
+    }
+}
+
+$digest = $digest->hexdigest;
+
+my $target_dir = $cache_dir . "/$digest";
+my $source_dir = './';
+
+if( -d $target_dir and not $error) {
+    for( @cache_files ) {
+        if( !-f "$target_dir/$_" ) {
+            verbose("$target_dir/$_ not found, regular build");
+            goto NORMAL_BUILD;
+        }
+    }
+
+    if( ! $error) {
+        # Cache hit
+        if( $dry_run ) {
+            say "Configure cache hit for $target_dir";
+        } else {
+            my %copied;
+            for my $file (@cache_files) {
+                if( ! cp( "$target_dir/$file" => "$source_dir/$file" )) {
+                    unlink keys %copied;
+                    verbose( "Restoring '$target_dir/$file' to '$source_dir/$file' failed: $!" );
+                    goto NORMAL_BUILD;
+                }
+                $copied{ "$source_dir/$file" } = 1;
+            }
+
+            # We don't cache this one yet:
+            system("sh", "./makedepend", 'MAKE="make"', "cflags");
+        }
+    } else {
+        goto NORMAL_BUILD;
+    }
+
+    # Successful exit with cached files
+    exit 0;
+}
+
+NORMAL_BUILD:
+# Cache miss
+if( $dry_run ) {
+    say "Configure cache miss for $target_dir";
+} else {
+    normal_build();
+}
+
+sub normal_build {
+    if( $dry_run ) {
+        say "@cmd";
+    } else {
+        if( (my $code = system(@cmd)) != 0) {
+            exit $code;
+        };
+
+        make_path( $target_dir );
+        if( ! -d $target_dir ) {
+            verbose("Couldn't create '$target_dir': $!");
+            return;
+        }
+
+        for my $file (@cache_files) {
+            my $target_file = "$target_dir/$file";
+            make_path(dirname($target_file));
+            if( !cp "$source_dir/$file" => "$target_dir/$file" ) {
+                say "Couldn't cache $source_dir/$file to $target_dir/$file: $!";
+                rmtree($target_dir);
+                last
+            }
+        }
+    }
+}
+
+sub verbose( $msg ) {
+    if( $verbose ) {
+        say $msg;
+    }
+}
