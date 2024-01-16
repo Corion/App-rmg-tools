@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 use 5.020;
+use experimental 'signatures';
 use Digest::MD5 'md5_hex';
 use File::Copy 'cp';
 use File::Path 'make_path', 'rmtree';
