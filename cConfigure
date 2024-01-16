@@ -100,7 +100,7 @@ if( -d $target_dir and not $error) {
             }
 
             # We don't cache this one yet:
-            system("sh", "./makedepend", 'MAKE="make"', "cflags");
+            system("make", "depend");
         }
     } else {
         goto NORMAL_BUILD;
