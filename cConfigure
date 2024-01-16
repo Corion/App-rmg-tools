@@ -1,5 +1,9 @@
 #!/usr/bin/perl
+# Make sure we can run this even as sh cConfigure ...
+eval 'exec /usr/bin/perl -wS $0 ${1+"$@"}'
+    if $running_under_some_shell;
 use 5.020;
+no warnings 'once';
 use experimental 'signatures';
 use Digest::MD5 'md5_hex';
 use File::Copy 'cp';
