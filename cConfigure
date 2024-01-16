@@ -11,7 +11,7 @@ cacheConfigure - Faster Metaconf by caching
 
 =head1 SYNOPSIS
 
-  sh .../cacheConfigure -- ./Configure -des -Dusedevel -Uusedl
+  sh .../cConfigure -- ./Configure -des -Dusedevel -Uusedl
 
 =cut
 
