@@ -57,8 +57,7 @@ my @cache_files = (
 my $error;
 
 my $digest = Digest::MD5->new();
-# We don't actually want to keep @ARGV
-#$digest->add( join "\0", @ARGV );
+$digest->add( join "\0", sort @ARGV );
 $digest->add( join "\0", @envvars, @ENV{@envvars} // '');
 
 for my $file (@files) {
