@@ -128,19 +128,21 @@ sub normal_build {
         make_path( $target_dir );
         if( ! -d $target_dir ) {
             verbose("Couldn't create '$target_dir': $!");
-            return;
-        }
+        } else {
 
-        for my $file (@cache_files) {
-            my $target_file = "$target_dir/$file";
-            make_path(dirname($target_file));
-            if( !cp "$source_dir/$file" => "$target_dir/$file" ) {
-                say "Couldn't cache $source_dir/$file to $target_dir/$file: $!";
-                rmtree($target_dir);
-                last
+            for my $file (@cache_files) {
+                my $target_file = "$target_dir/$file";
+                make_path(dirname($target_file));
+                if( !cp "$source_dir/$file" => "$target_dir/$file" ) {
+                    say "Couldn't cache $source_dir/$file to $target_dir/$file: $!";
+                    rmtree($target_dir);
+                    last
+                }
             }
         }
     }
+    # We built OK, so exit with 0
+    exit 0;
 }
 
 sub verbose( $msg ) {
