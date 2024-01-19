@@ -9,6 +9,7 @@ BASE=$(cd $(dirname $0); pwd)
 
 # We assume bash, so $PWD is set ...
 BLEADPERL=${1-$PWD}
+CONFIGURE=${CONFIGURE:-$BASE/cConfigure -- ./Configure}
 
 if [ ! -f "$BLEADPERL/Configure" ]; then
     echo "'$BLEADPERL/Configure' not found - is this the right directory?"
@@ -51,8 +52,10 @@ export MAKEFLAGS=-j12
 for conf in "" "-Dusethreads" "-Duserrelocatableinc" ; do
     echo -en "\e]2;Building $VERSION $conf\a"
     rm config.sh Policy.sh
-    if ! (   ./Configure -Dusedevel -des $conf -Dprefix=/tmp/perl-$VERSION \
+    if ! ( $CONFIGURE -Dusedevel -des $conf -Dprefix=/tmp/perl-$VERSION \
+          && echo "Test started" \
           && make test_harness \
+          && echo "Install started" \
           && make install \
           && /tmp/perl-$VERSION/bin/perl$VERSION "$BASE/blead-installtest.pl" \
         ) ; then
