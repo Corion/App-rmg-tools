@@ -289,6 +289,19 @@ my @boards = (
 
 my @steps = (
     {
+        name => 'Version number bumped for this dev release',
+        release_type => 'BLEAD-POINT',
+        reference => 'bump version',
+        test => sub {
+            (my $version) = map {
+                /^api_versionstring='(.*?)'$/
+            } lines('config.sh');
+            if( $version ne $our_version) {
+                return "Found $version, bump versions to $our_version"
+            };
+        },
+    },
+    {
         name => 'Release branch created',
         reference => 'create a release branch',
         test => sub( $self ) {
@@ -723,7 +736,7 @@ for my $step (@steps) {
 		&& $step == $last_milestone->{step} ) {
 		$before_milestone = 0;
 	};
-	
+
 	my $s;
 	if( $before_milestone ) {
 		$s = {
@@ -789,6 +802,7 @@ if( $output_format eq 'text' ) {
 
     my $tmpl = HTML::Template->new(
         filehandle => *DATA,
+        die_on_bad_params => 0,
     );
     $tmpl->param(info   => [map { +{line => $_ }} @info]);
     $tmpl->param(boards => \@html_rendered_boards);
