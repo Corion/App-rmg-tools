@@ -284,6 +284,7 @@ my @boards = (
 
 # how can we handle if a later step has happened but a previous step seems to have undone that?!
 # a) Create an intricate data structure/workflow graph to model the transitions
+#    by having ids and listing ids as prerequisites
 # b) Add "milestones" that act as points of no return. "git push" is such a milestone, and a close
 #    cousin is creating the appropriate git tag/git commit
 
@@ -485,6 +486,7 @@ my @steps = (
                     return "Create the release tag $our_tag"
                 };
         },
+        id => 'tag-created'
     },
     {
         name => "release tarball exists",
@@ -619,6 +621,8 @@ my @steps = (
         name => 'Release tag pushed upstream',
         reference => 'publish the release tag',
         type => 'milestone',
+        id => 'release-tag-pushed-upstream',
+        needs => ['tag-created'],
         test => sub {
             my $branch = git_branch();
             if( $branch ne 'blead' ) {
@@ -636,6 +640,7 @@ my @steps = (
     {
         name => 'Release branch deleted',
         reference => 'delete release branch',
+        needs => ['release-tag-pushed-upstream'],
         test => sub {
             my $branch = git_branch();
             if( $branch ne 'blead') {
@@ -702,19 +707,34 @@ for my $board (@boards) {
 }
 
 my %status_cache;
+my %prerequisites;
+
 sub step_status( $step ) {
 	if (! exists $status_cache{ $step }) {
 		local $|=1;
 		my $msg = $step->{name};
 		print $msg;
-		my $action = $step->{test}->($step);
+
+        my @missing_prereq;
+        if( my $p = $step->{needs} ) {
+            @missing_prereq = grep { !$prerequisites{ $_ } } $p->@*;
+        }
+
+		my $action;
+        if( @missing_prereq ) {
+            $action = "Waiting for " . join ", ", @missing_prereq;
+        } else {
+            $action = $step->{test}->($step);
+        }
 		my $name = $step->{name};
+
 		$status_cache{ $step } = {
 			done => ( !$action ? "\N{CHECK MARK}" : " "),
 			name => $name,
 			action => $action,
 			step => $step,
 			reference => $step->{reference},
+            id => $step->{id},
 		};
 		print "\r" . (" " x length($msg)). "\r";
 	}
@@ -722,6 +742,13 @@ sub step_status( $step ) {
 }
 
 # Now, find the last milestone whose condition is met
+# Also, we set all steps with an id that we found
+for my $s (map { step_status( $_ ) } @steps) {
+    if( !$s->{action} and $s->{id} ) {
+        $prerequisites{ $s->{id}} = 1;
+    }
+}
+
 my @milestones = grep { $_->{done} eq "\N{CHECK MARK}" }
                  map  { step_status($_) }
                  grep { $_->{type} and $_->{type} eq 'milestone' } @steps;
