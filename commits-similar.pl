@@ -7,6 +7,13 @@ use IPC::Run3;
 use Text::Table;
 use List::Util 'max';
 
+use Getopt::Long;
+
+GetOptions(
+    'r|repo=s' => \my $repo_dir,
+);
+$repo_dir //= '.';
+
 our @reference_commits => (
     {
         commit => '84a028ef5433b2dbbb52bbecfb1c944232f1b8b4',
@@ -35,7 +42,7 @@ sub run(@command) {
 }
 
 sub git(@command) {
-    return run(git => @command)
+    return run(git => '-C' => $repo_dir, @command)
 }
 
 sub changed_files_by_commit( $this_commit ) {
