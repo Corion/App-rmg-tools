@@ -13,6 +13,7 @@ use IPC::Run3;
 use Text::Table;
 use JSON::PP;
 use HTTP::Tiny;
+use YAML::Tiny 'LoadFile';
 
 GetOptions(
     'build-dir|d=s' => \my $build_dir,
@@ -91,6 +92,10 @@ sub lines($file) {
         return trimmed(<$fh>);
     }
     return ()
+}
+
+sub yamlfile($file) {
+    LoadFile($file)
 }
 
 sub run(@command) {
