@@ -62,6 +62,9 @@ for conf in "" "-Dusethreads" "-Duserrelocatableinc" ; do
     # Update our console title
     echo -en "\e]2;Building $VERSION $conf\a"
     rm config.sh Policy.sh
+    if [ -d "$INSTALL_TARGET" ]; then
+        rm -rf "$INSTALL_TARGET"
+    fi
     if ! ( $CONFIGURE -Dusedevel -des $conf -Dprefix=$INSTALL_TARGET \
           && echo "Test started" \
           && make test_harness \
