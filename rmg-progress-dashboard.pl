@@ -77,7 +77,7 @@ sub file_newer_than( $fn, $reference ) {
     map {
         my $f = $_;
         warn $f if ! -f $f;
-        grep { warn $_ if ! -f $_; $mtime{ $f } >= $mtime{ $_ }} @$reference
+        grep { ($mtime{ $f } // 0) >= ($mtime{ $_ } // 0) } @$reference
     } @$fn
 }
 
