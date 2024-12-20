@@ -25,6 +25,7 @@ GetOptions(
     'git-author=s' => \my $git_author,
     'format=s' => \my $output_format,
     'output-file|o=s' => \my $output_file,
+    'console' => \my $console,
 );
 
 # We will shell out to the fresh Perl, so be certain not to pollute it
@@ -718,7 +719,7 @@ sub step_status( $step ) {
 	if (! exists $status_cache{ $step }) {
 		local $|=1;
 		my $msg = $step->{name};
-		print $msg;
+		print $msg unless $console;
 
         my @missing_prereq;
         if( my $p = $step->{needs} ) {
@@ -741,7 +742,7 @@ sub step_status( $step ) {
 			reference => $step->{reference},
             id => $step->{id},
 		};
-		print "\r" . (" " x length($msg)). "\r";
+		print "\r" . (" " x length($msg)). "\r" unless $console;
 	}
 	return $status_cache{ $step };
 }
@@ -784,7 +785,7 @@ for my $step (@steps) {
 }
 
 my $output = '';
-if( $output_format eq 'text' ) {
+if( $output_format eq 'text' or $console ) {
     # IPC::Run3 thrashes *STDOUT encoding, for some reason ?!
 
     $output .= join "\n", @info, "";
@@ -809,7 +810,14 @@ if( $output_format eq 'text' ) {
     $table->load( @rendered_items );
     $output .= $table . "\n";
 
-} elsif( $output_format eq 'html' ) {
+    if($console) {
+        binmode *STDOUT, ':raw:encoding(UTF-8)';
+        print STDOUT $output;
+        $output = '';
+    }
+
+};
+if( $output_format eq 'html' ) {
     require HTML::Template;
     local $/;
     my @html_rendered_boards = map {
