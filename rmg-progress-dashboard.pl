@@ -302,7 +302,7 @@ my @steps = (
         test => sub {
             (my $version) = map {
                 /^api_versionstring='(.*?)'$/
-            } lines('config.sh');
+            } lines("$build_dir/config.sh");
             if( $version ne $our_version) {
                 return "Found $version, bump versions to $our_version"
             };
@@ -347,8 +347,8 @@ my @steps = (
                 return "Run make";
             };
 
-            if( my @newer = file_newer_than( "./perl", ["config.sh", "Policy.sh" ])) {
-                return "Rebuild ./perl, @newer is newer"
+            if( my @newer = file_newer_than( "$build_dir/perl", ["$build_dir/config.sh", "$build_dir/Policy.sh" ])) {
+                return "Rebuild $build_dir/perl, @newer is newer"
             };
 
             my $v = [run("$build_dir/perl", "-I$build_dir/lib", '-wE', 'say $]')]->[0];
@@ -407,7 +407,7 @@ my @steps = (
         files => ["pod/perldelta.pod"],
         reference => 'final check of perldelta placeholders',
         test => sub( $self ) {
-                (my $bad) = grep { /\bXXX\b|^\s*\[(?!(github|commit))[^L]/ } lines('pod/perldelta.pod');
+                (my $bad) = grep { /\bXXX\b|^\s*\[(?!(github|commit))[^L]/ } lines("$build_dir/pod/perldelta.pod");
                 if ($bad) {
                     return "Fix '$bad'"
                 };
@@ -421,7 +421,7 @@ my @steps = (
                 # Perlhist.pod has yet another date format, instead of yyyy-mm-dd
                 # We ignore that
                 my $version = $our_tag =~ s/^v//r;
-                (my $this) = grep { /\Q$version\E/ } lines( 'pod/perlhist.pod' );
+                (my $this) = grep { /\Q$version\E/ } lines( "$build_dir/pod/perlhist.pod" );
 
                 if( ! $this ) {
                     return "version $version not added";
