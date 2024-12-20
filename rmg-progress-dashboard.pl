@@ -878,6 +878,7 @@ __DATA__
 <html>
 <head>
 <meta charset="utf-8"/>
+<meta http-equiv="refresh" content="60">
 <title>Release manager dashboard for <TMPL_VAR NAME="our_version"></title>
 <style>
 html {
