@@ -749,7 +749,8 @@ sub step_status( $step ) {
 
 # Now, find the last milestone whose condition is met
 # Also, we set all steps with an id that we found
-for my $s (map { step_status( $_ ) } @steps) {
+for my $step (@steps) {
+    my $s = step_status( $step );
     if( !$s->{action} and $s->{id} ) {
         $prerequisites{ $s->{id}} = 1;
     }
