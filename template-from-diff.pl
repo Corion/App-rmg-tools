@@ -15,7 +15,8 @@ sub extract_prefix( $l, $r ) {
 }
 
 # We assume a single change per line, which makes sense given our data
-sub line_template( $line1, $line2, $name='XXX' ) {
+state $name_counter = 1;
+sub line_template( $line1, $line2, $value_names={} ) {
 
     if( $line1 eq $line2 ) {
         return {
@@ -27,8 +28,6 @@ sub line_template( $line1, $line2, $name='XXX' ) {
     my $prefix = extract_prefix( $line1, $line2 );
     my $suffix = reverse extract_prefix( scalar reverse($line1), scalar reverse($line2));
 
-    my $template = $prefix . "{$name}" . $suffix;
-
     my ($pre, $suf) = (length($prefix),length($suffix));
 
     my $values = [
@@ -36,27 +35,64 @@ sub line_template( $line1, $line2, $name='XXX' ) {
         substr( $line2, $pre, length($line2)-$pre-$suf),
     ];
 
+    # Find an existing value
+    my $name =  $value_names->{ $values->[0] }
+             // $value_names->{ $values->[1] };
+    if( ! defined $name ) {
+        #say "No name for '$values->[0]' or '$values->[1]'";
+
+        # We need to make up a fresh name
+        $name = 'tmpl_' . $name_counter++;
+        $value_names->{ $values->[0] } = $name;
+        $value_names->{ $values->[1] } = $name;
+    };
+
+    my $template = $prefix . "{$name}" . $suffix;
+
     return {
         template => $template,
         values => { $name => $values },
     };
 }
 
-sub gen_template( $diff1, $diff2 ) {
+sub gen_template( $diff1, $diff2, $value_names={} ) {
     # Rearrange sequences of + / - side-by-side
-    my $hunk_length = 1;
-    while( substr( $diff1->[$hunk_length],0,1 ) eq '-' ) {
-        $hunk_length++;
-    }
+    # This assumes that the two diffs are of the same size!
 
-    # Meh - do we want a side-by-side template, or two templates that hopefully line up?!
+    my $ofs = 0;
+
+    my $count = 1;
+
     my @res;
-    #for my $i (0..$hunk_length++) {
-    for my $i (0) {
-        push @res, [
-            line_template( substr($diff1->[$i],1), substr($diff2->[$i],1),'xxx'),
-            line_template( substr($diff1->[$i],1), substr($diff1->[$i+$hunk_length],1),'yyy' ),
-        ]
+
+    while( $ofs < scalar $diff1->@* ) {
+
+        my $hunk_length = 1;
+        while( substr( $diff1->[$ofs+$hunk_length],0,1 ) eq '-' ) {
+            $hunk_length++;
+        }
+
+        # Meh - do we want a side-by-side template, or two templates that hopefully line up?!
+        for my $i (0..$hunk_length-1) {
+            croak sprintf "%d:%d - Internal consistency error at line %d- found '%s'",
+                    $ofs, $i, $ofs+$i, $diff1->[$ofs+$i]
+                unless $diff1->[$ofs+$i] =~ /\A-/;
+
+            #use Text::Table;
+            #my $t = Text::Table->new('l','r');
+            #$t->load(
+            #    [$diff1->[$ofs+$i], $diff2->[$ofs+$i]],
+            #    [$diff1->[$ofs+$i+$hunk_length], '-'],
+            #);
+            #say $t;
+
+            push @res, [
+                line_template( substr($diff1->[$ofs+$i],1), substr($diff2->[$ofs+$i],1),  $value_names),
+                line_template( substr($diff1->[$ofs+$i],1), substr($diff1->[$ofs+$i+$hunk_length],1), $value_names ),
+            ]
+        }
+
+        $ofs += $hunk_length*2;
     }
     return \@res;
 }
@@ -128,10 +164,15 @@ my @diff = (
 ],
 );
 
-sub merge_templates_2( $t1, $t2 ) {
-    my $magic_key = "\0magic\0";
-    my $merged = line_template( $t1->{template}, $t2->{template}, $magic_key );
+sub merge_templates_2( $t1, $t2, $names ) {
+    #say "Merging templates:";
+    #say $t1->{template};
+    #say $t2->{template};
+    my $merged = line_template( $t1->{template}, $t2->{template}, \my %local_names );
+    (my $magic_key) = values %local_names;
+    $magic_key =~ s/\{|\}//g;
     my $values = $merged->{values}->{$magic_key};
+    #use Data::Dumper; say Dumper \%local_names;
 
     # This means we have only a single variable. So, just return the template,
     # instead of trying to further merge it
@@ -185,18 +226,26 @@ sub merge_templates_2( $t1, $t2 ) {
     }
 }
 
-sub merge_templates( $t, @templates ) {
+sub merge_templates( $names, $t, @templates,  ) {
     my $t2 = $t;
-    return reduce { merge_templates_2($a,$b) } ($t, @templates)
+    return reduce { merge_templates_2($a,$b, $names) } ($t, @templates)
 }
 
 for my $test (@diff) {
-    my $template = gen_template($test->[0], $test->[1]);
+    my %names = (
+            37 => 'minor',
+            37.7 => 'minor.sub',
+            37.4 => 'minor.sub',
+            7 => 'sub',
+            4 => 'sub',
+    );
+    my $template = gen_template($test->[0], $test->[1], \%names);
 
     my $needs_merge = [
         grep { 0+keys $_->{values}->%* } $template->[0]->@*
     ];
 
-    warn Dumper merge_templates( $needs_merge->@* );
+    say "Merged template";
+    warn Dumper merge_templates( \%names, $needs_merge->@* );
 }
 
