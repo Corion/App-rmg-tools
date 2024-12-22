@@ -140,12 +140,9 @@ sub merge_templates_2( $t1, $t2 ) {
 
     # Now, magically align the two strings...
     if( $start1 > $start2 ) {
-        # Swap and start over
-        #warn "Swapping";
         return merge_templates( $t2, $t1 );
+
     } else {
-        #use Data::Dumper; warn Dumper $merged;
-        #warn "[$start1,$end1] | [$start2,$end2]";
         my $middle1 = substr( $values->[0], $end1 );
         my $middle2 = substr( $values->[1], 0, $start2 );
 
@@ -161,8 +158,8 @@ sub merge_templates_2( $t1, $t2 ) {
         my $first_template  = substr($values->[0], $start1, $end1-$start1);
         my $second_template = substr($values->[1], $start2, $end2-$start2);
 
-        (my $k1) = keys $t1->{values}->%*;
-        (my $k2) = keys $t2->{values}->%*;
+        (my @k1) = keys $t1->{values}->%*;
+        (my @k2) = keys $t2->{values}->%*;
 
         my $t = "$first_template$common$second_template";
         my $m = $merged->{template} =~ s/\Q{$magic_key}/$t/r;
@@ -172,9 +169,11 @@ sub merge_templates_2( $t1, $t2 ) {
 
             # The construction of the values is not entirely correct, but
             # close enough for "common" values.
+            # How will we handle values that appear in multiple merged templates?!
+            # Or are the values for laughs anyway and should be re-extracted?!
             values => {
-                $k1 => $t1->{values}->{$k1},
-                $k2 => $t2->{values}->{$k2},
+                $t1->{values}->%*,
+                $t2->{values}->%*,
             },
         }
     }
