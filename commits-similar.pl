@@ -6,6 +6,7 @@ no warnings 'experimental::signatures';
 use IPC::Run3;
 use Text::Table;
 use List::Util 'max';
+use Data::Dumper;
 
 use Getopt::Long;
 
@@ -91,12 +92,12 @@ sub raw_commit( $commit ) {
     return @commit
 }
 
+# This shouldn't be _unlike but just "commit_diff" or something
 sub commit_unlike( $this, $that, $unifier_cb, $l, $r ) {
    my @left  = raw_commit( $this );
    my @right = raw_commit( $that );
    my @cmp_left  = map { $unifier_cb->($_, $l) } @left;
    my @cmp_right = map { $unifier_cb->($_, $r) } @right;
-   #my @cmp_right = @right;
 
    my @diff;
 
@@ -139,6 +140,7 @@ say commit_file_diff_vis( 'old', 'new', $d );
 my $ref_v  = [[ '5.37.4' => 'old' ], => [ '5.37.5' => 'next' ]];
 my $this_v = [[ '5.41.4' => 'old' ], => [ '5.41.5' => 'next' ]];
 
+# This is highly Perl 5 specific - a template approach might be more generic
 sub make_repl_version( $v ) {
     my ($version, $moniker) = $v->@*;
     my ($major, $minor, $sub) = split /\./, $version;
@@ -198,12 +200,89 @@ sub fudge_version_number($line, $ref) {
 };
 
 #my @diff = commit_unlike( '1ef54df4bdf39e1d2ef626673002bbc7886b7bb3','4ab96809c99e944e70c21779641e4b1c9a00df41', \&fudge_version_number );
-my $repl_ref = make_repl( $ref_v );
-my $repl_this = make_repl( $this_v );
+#my $repl_ref = make_repl( $ref_v );
+#my $repl_this = make_repl( $this_v );
 
-my @diff = commit_unlike( '1ef54df4bdf39e1d2ef626673002bbc7886b7bb3','0f4efa6f1c7cddb31d9c8c24d1af539cd12776e7', \&fudge_version_number, $repl_ref, $repl_this );
+#my @diff = commit_unlike( '1ef54df4bdf39e1d2ef626673002bbc7886b7bb3','0f4efa6f1c7cddb31d9c8c24d1af539cd12776e7', \&fudge_version_number, $repl_ref, $repl_this );
 #if( @diff ) {
 #    use Data::Dumper;
 #    warn Dumper \@diff;
 #}
 
+sub per_file_diff( $lines ) {
+    my $files = {};
+    my $fn;
+    for ($lines->@*) {
+        if( /^\+\+\+ (.+)/ ) {
+            $fn = $1;
+        } elsif( /^--- (.+)/ ) {
+            # ignore
+        } elsif( /^diff (.+)/ ) {
+            # ignore
+        } elsif( /^index (.+)/ ) {
+            # ignore
+        } elsif( /^\@\@ (.+)/ ) {
+            # ignore
+            # a new chunk in this file starts, re-align the diff?!
+        } else {
+            push $files->{ $fn }->@*, $_;
+        }
+    }
+    return $files;
+}
+
+sub extract_prefix( $l, $r ) {
+    my $map = $l ^ $r;
+    $map =~ /^(\0*)/;
+    return substr( $l, 0, length( $1 ));
+}
+
+# We assume a single change per line, which makes sense given our data
+sub line_template( $line1, $line2, $name='XXX' ) {
+
+    if( $line1 eq $line2 ) {
+        return [ $line1, {} ]
+    }
+
+    my $prefix = extract_prefix( $line1, $line2 );
+    my $suffix = reverse extract_prefix( scalar reverse($line1), scalar reverse($line2));
+
+    my $template = $prefix . "{$name}" . $suffix;
+
+    my ($pre, $suf) = (length($prefix),length($suffix));
+
+    my $values = [
+        substr( $line1, $pre, length($line1)-$pre-$suf),
+        substr( $line2, $pre, length($line2)-$pre-$suf),
+    ];
+
+    return [$template, $values];
+}
+
+sub gen_template( $diff1, $diff2 ) {
+    # Rearrange sequences of + / - side-by-side
+    my $hunk_length = 1;
+    while( substr( $diff1->[$hunk_length],0,1 ) eq '-' ) {
+        $hunk_length++;
+    }
+
+    my $i = 2;
+    return [
+        [line_template( substr($diff1->[$i],1), substr($diff2->[$i],1),'xxx' )],
+        [line_template( substr($diff1->[$i],1), substr($diff1->[$i+$hunk_length],1),'yyy' )],
+    ]
+}
+
+# Generate a template from two (or more) commits, line by line
+sub template_from_commits( $orig, @commits ) {
+    my $left  = per_file_diff( [raw_commit( $orig )]);
+    my $right = per_file_diff( [raw_commit( $commits[0] )]);
+
+    my $fn = "b/win32/Makefile";
+    my $fn = "b/Cross/config.sh-arm-linux";
+    my $r = gen_template( $left->{$fn}, $right->{$fn});
+
+    return { $fn => $r };
+}
+
+say Dumper template_from_commits( '1ef54df4bdf39e1d2ef626673002bbc7886b7bb3','0f4efa6f1c7cddb31d9c8c24d1af539cd12776e7' );
