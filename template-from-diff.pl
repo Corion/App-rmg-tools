@@ -48,11 +48,17 @@ sub gen_template( $diff1, $diff2 ) {
     while( substr( $diff1->[$hunk_length],0,1 ) eq '-' ) {
         $hunk_length++;
     }
-    my $i  = 0;
-    return [
-        line_template( substr($diff1->[$i],1), substr($diff2->[$i],1),'xxx'),
-        line_template( substr($diff1->[$i],1), substr($diff1->[$i+$hunk_length],1),'yyy' ),
-    ]
+
+    # Meh - do we want a side-by-side template, or two templates that hopefully line up?!
+    my @res;
+    #for my $i (0..$hunk_length++) {
+    for my $i (0) {
+        push @res, [
+            line_template( substr($diff1->[$i],1), substr($diff2->[$i],1),'xxx'),
+            line_template( substr($diff1->[$i],1), substr($diff1->[$i+$hunk_length],1),'yyy' ),
+        ]
+    }
+    return \@res;
 }
 
 my @diff = (
@@ -186,10 +192,9 @@ sub merge_templates( $t, @templates ) {
 
 for my $test (@diff) {
     my $template = gen_template($test->[0], $test->[1]);
-    #use Data::Dumper; warn Dumper $template;
 
     my $needs_merge = [
-        grep { 0+keys $_->{values}->%* } $template->@*
+        grep { 0+keys $_->{values}->%* } $template->[0]->@*
     ];
 
     warn Dumper merge_templates( $needs_merge->@* );
