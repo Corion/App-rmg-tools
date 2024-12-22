@@ -257,6 +257,7 @@ my @boards = (
         list => sub {
             my( $self ) = @_;
 
+            # XXX make independent of current directory
             my @items = run("$build_dir/perl", "-Ilib", "Porting/core-cpan-diff", "-x", "-a");
             my %items;
             my $curr;
@@ -369,7 +370,7 @@ my @steps = (
         },
     },
     {
-        name => 'Module::CoreList was updated',
+        name => 'Module::CoreList was updated for ' . $our_version,
         reference => 'update Module::CoreList',
         test => sub {
                 if( ! commit_message_exists( "Update Module::CoreList for .*$our_version",
@@ -600,7 +601,7 @@ my @steps = (
             if( ! $planned_release->{released} ) {
                 return "Tick the release mark";
             };
-            if( ! commit_message_exists( "release_.*$our_tag",
+            if( ! commit_message_exists( "schedule",
                     since => $previous_tag,
                     author => $git_author,
                 )) {
