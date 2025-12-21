@@ -162,6 +162,20 @@ my @diff = (
           '+archlibexp=\'/usr/lib/perl5/5.41.5/armv4l-linux\'',
     ]
 ],
+[
+    [
+          '-archlib=\'/usr/lib/perl5/5.37.4/armv4l-linux\'',
+          '-archlibexp=\'/usr/lib/perl5/5.37.4/armv4l-linux\'',
+          '+archlib=\'/usr/lib/perl5/5.37.7/armv4l-linux\'',
+          '+archlibexp=\'/usr/lib/perl5/5.37.7/armv4l-linux\'',
+     ],
+    [
+          '-archlib=\'/usr/lib/perl5/7.41.4/armv4l-linux\'',
+          '-archlibexp=\'/usr/lib/perl5/7.41.4/armv4l-linux\'',
+          '+archlib=\'/usr/lib/perl5/7.41.5/armv4l-linux\'',
+          '+archlibexp=\'/usr/lib/perl5/7.41.5/armv4l-linux\'',
+    ]
+],
 );
 
 sub merge_templates_2( $t1, $t2, $names ) {
@@ -240,12 +254,21 @@ for my $test (@diff) {
             4 => 'sub',
     );
     my $template = gen_template($test->[0], $test->[1], \%names);
+    # Maybe generate all templates against $test->[0] ?!
 
-    my $needs_merge = [
-        grep { 0+keys $_->{values}->%* } $template->[0]->@*
-    ];
+    my @template;
+    for my $line ($template->@*) {
 
+        my $needs_merge = [
+            grep { 0+keys $_->{values}->%* } $line->@*
+        ];
+
+        my $merged = merge_templates( \%names, $needs_merge->@* );
+        push @template, $merged->{template};
+    };
     say "Merged template";
-    warn Dumper merge_templates( \%names, $needs_merge->@* );
+    say $_ for $test->[0]->@*;
+    say "==>";
+    say $_ for @template;
 }
 
