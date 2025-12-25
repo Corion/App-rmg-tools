@@ -105,7 +105,13 @@ sub yamlfile($file) {
     LoadFile($file)
 }
 
+our $DRY_RUN;
+
 sub run(@command) {
+    if( $DRY_RUN ) {
+        return "@command";
+    }
+
     my $dir = getcwd();
     chdir( $build_dir )
         or die "Couldn't chdir() to '$build_dir': $!";
@@ -119,12 +125,23 @@ sub run(@command) {
 }
 
 sub exitcode_zero(@command) {
+    if( $DRY_RUN ) {
+        return "@command";
+    }
     run(@command);
     return $? == 0
 }
 
 sub git(@command) {
+    if( $DRY_RUN ) {
+        return "git @command";
+    }
     return run(git => @command)
+}
+
+sub dry_run( $action ) {
+    local $DRY_RUN = 1;
+    return $action ? $action->({}) : '(manual)'
 }
 
 sub commit_message_exists($message, %options) {
@@ -318,18 +335,21 @@ my @steps = (
                 die "Couldn't find a version via '$build_dir/config.sh' ?!";
             }
             if( $version ne $our_version) {
-                return "Found $version, bump versions to $our_version"
+                return "Found $version, bump versions to $our_version";
             };
         },
     },
     {
         name => 'Release branch created',
         reference => 'create a release branch',
+        action => sub( $self ) {
+            git( checkout => "-b", $release_branch );
+        },
         test => sub( $self ) {
             my $branch = git_branch();
             # timestamp: git show foo^{commit} -s '--format=%ai'
             $branch ne $release_branch
-                and return "Create branch $release_branch"
+                and return "Create branch $release_branch";
         },
     },
     {
@@ -373,6 +393,9 @@ my @steps = (
     },
     {
         name => 'make test was run',
+        action => sub( $self ) {
+            run( make => 'test' );
+        },
         test => sub {
                 if( ! file_exists( 't/rantests', $build_dir )) {
                     return "Run make test";
@@ -503,7 +526,7 @@ my @steps = (
         type => 'milestone',
         test => sub {
                 if( ! git( tag => '-l', $our_tag )) {
-                    return "Create the release tag $our_tag"
+                    return "Create the release tag $our_tag";
                 };
         },
         id => 'tag-created'
@@ -512,6 +535,9 @@ my @steps = (
         name => "release tarball exists",
         reference => 'build the tarball',
         files => ["$build_dir/../$our_tarball_xz"],
+        action => sub( $self ) {
+            run( perl => "Porting/makerel", "-x" );
+        },
         test => sub {
             # Well, this should also be newer than all other
             # files here
@@ -628,6 +654,7 @@ my @steps = (
         test => sub {
             my $branch = git_branch();
             if( $branch ne 'blead') {
+                # XXX here we should return this action as the next step
                 return "Switch back to blead";
             }
             my @diff = git( log => $release_branch..'blead' );
@@ -697,10 +724,13 @@ my @steps = (
         name => 'Version number bumped for next dev release',
         release_type => 'BLEAD-POINT',
         reference => 'bump version',
+        action => sub( $self ) {
+            run( "perl" => "-Ilib","Porting/bump-perl-version","-i",$our_version, $next_version );
+        },
         test => sub {
             my $branch = git_branch();
             if( $branch ne 'blead' ) {
-                return "Switch back to blead";
+                return { visual => "Switch back to blead" };
             };
 
             (my $version) = map {
@@ -708,6 +738,8 @@ my @steps = (
             } lines("$build_dir/config.sh");
             if( $version ne $next_version) {
                 return "Found $version, bump versions to $next_version"
+            } else {
+                return 1
             };
         },
     },
@@ -741,15 +773,20 @@ sub step_status( $step ) {
         }
 
 		my $action;
+        my $is_done;
         if( @missing_prereq ) {
-            $action = "Waiting for " . join ", ", @missing_prereq;
+            $action = {
+                visual => "Waiting for " . join( ", ", @missing_prereq),
+            };
         } else {
             $action = $step->{test}->($step);
+            $is_done = !$action;
         }
 		my $name = $step->{name};
 
 		$status_cache{ $step } = {
-			done => ( !$action ? "\N{CHECK MARK}" : " "),
+			done => $is_done,
+            done_visual => ( $is_done ? "\N{CHECK MARK}" : " "),
 			name => $name,
 			action => $action,
 			step => $step,
@@ -819,8 +856,8 @@ if( $output_format eq 'text' or $console ) {
     };
     my $table = Text::Table->new();
     my @rendered_items = map {
-        my $v_done = "[$_->{done}]";
-        [$v_done, $_->{name}, $_->{action}]
+        my $v_done = "[$_->{done_visual}]";
+        [$v_done, $_->{name}, $_->{action}, $_->{done} ? '' : dry_run( $_->{step}->{action} ) ]
     } @items;
     $table->load( @rendered_items );
     $output .= $table . "\n";
