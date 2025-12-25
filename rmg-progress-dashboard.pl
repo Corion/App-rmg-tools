@@ -7,6 +7,7 @@ no warnings 'experimental::signatures';
 
 use POSIX 'strftime';
 use charnames ':full'; # for CHECK MARK
+use Cwd 'getcwd';
 use Data::Dumper;
 use Getopt::Long;
 use IPC::Run3;
@@ -105,10 +106,15 @@ sub yamlfile($file) {
 }
 
 sub run(@command) {
+    my $dir = getcwd();
+    chdir( $build_dir )
+        or die "Couldn't chdir() to '$build_dir': $!";
     run3(\@command, \undef, \my @stdout, \my @stderr, {
         return_if_system_error => 1,
         binmode_stdout => ':utf8',
     }) == -1 and warn "Command [@command] failed: $! / $?";
+    chdir( $dir )
+        or die "Couldn't chdir() back to '$dir': $!";
     return trimmed(@stdout);
 }
 
@@ -262,8 +268,7 @@ my @boards = (
         list => sub {
             my( $self ) = @_;
 
-            # XXX make independent of current directory
-            my @items = run("$build_dir/perl", "-Ilib", "Porting/core-cpan-diff", "-x", "-a");
+            my @items = run("./perl", "-Ilib", "Porting/core-cpan-diff", "-x", "-a");
             my %items;
             my $curr;
             my @res;
@@ -357,7 +362,7 @@ my @steps = (
                 return "Rebuild $build_dir/perl, @newer is newer"
             };
 
-            my $v = [run("$build_dir/perl", "-I$build_dir/lib", '-wE', 'say $]')]->[0];
+            my $v = [run("./perl", "-I$build_dir/lib", '-wE', 'say $]')]->[0];
             if( $v != $our_version_num) {
                 return "Wrong Perl version was built ($v, expected $our_version)";
             };
