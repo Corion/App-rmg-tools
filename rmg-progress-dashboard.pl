@@ -56,6 +56,11 @@ $cpan_user //= 'CORION';
 $git_author //= 'corion@corion.net';
 $output_format //= 'text';
 
+# Do a sanity check on the build dir:
+if( ! -e "$build_dir/Porting" ) {
+    die "Directory '$build_dir/Porting' not found. Did you want to run this with --build-dir='bleadperl' ?";
+}
+
 my $cpan_author_url = join "/", substr($cpan_user,0,1), substr($cpan_user,0,2), $cpan_user;
 
 sub file_exists( $fn, $dir = $build_dir ) {
