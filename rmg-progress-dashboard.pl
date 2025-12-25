@@ -705,7 +705,7 @@ my @steps = (
 
             (my $version) = map {
                 /^api_versionstring='(.*?)'$/
-            } lines('config.sh');
+            } lines("$build_dir/config.sh");
             if( $version ne $next_version) {
                 return "Found $version, bump versions to $next_version"
             };
