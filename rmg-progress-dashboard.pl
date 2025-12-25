@@ -314,6 +314,9 @@ my @steps = (
             (my $version) = map {
                 /^api_versionstring='(.*?)'$/
             } lines("$build_dir/config.sh");
+            if( ! $version ) {
+                die "Couldn't find a version via '$build_dir/config.sh' ?!";
+            }
             if( $version ne $our_version) {
                 return "Found $version, bump versions to $our_version"
             };
