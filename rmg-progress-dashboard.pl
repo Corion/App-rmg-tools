@@ -408,12 +408,20 @@ my @steps = (
     {
         name => 'Module::CoreList was updated for ' . $our_version,
         reference => 'update Module::CoreList',
+        action => sub( $self ) {
+            run("./perl","-Ilib","Porting/corelist.pl","cpan");
+        },
         test => sub {
-                if( ! commit_message_exists( "Update Module::CoreList for .*$our_version",
+            # First check, if Module::CoreList knows our version
+                if( exitcode_zero("./perl","-Ilib","-MModule::CoreList","-le", 'exit !Module::CoreList->find_version($])')) {
+                    # if not, run ./perl -Ilib Porting/corelist.pl cpan
+                    return "Update Module::CoreList";
+                } elsif( ! commit_message_exists( "Update Module::CoreList for .*$our_version",
                     since => $previous_tag,
                     author => $git_author,
                 )) {
-                    return "Update Module::CoreList, commit the changes"
+                    # git commit -m "Update Module::CoreList for $our_version"
+                    return "Commit the changes to Module::CoreList"
                 }
                 # Check that the commit is like the other commits for that
         },
