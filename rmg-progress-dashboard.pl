@@ -498,7 +498,7 @@ my @steps = (
     {
         name => "tag for $our_version is created",
         action => sub( $self ) {
-            git( tag => $our_version, '-m', "y-1 release of the 5.xx series" );
+            git( tag => "v$our_version", '-m', "Perl $our_version" );
         },
         type => 'milestone',
         test => sub {
