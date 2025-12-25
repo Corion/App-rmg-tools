@@ -775,9 +775,7 @@ sub step_status( $step ) {
 		my $action;
         my $is_done;
         if( @missing_prereq ) {
-            $action = {
-                visual => "Waiting for " . join( ", ", @missing_prereq),
-            };
+            $action = "Waiting for " . join( ", ", @missing_prereq),
         } else {
             $action = $step->{test}->($step);
             $is_done = !$action;
