@@ -365,14 +365,16 @@ my @steps = (
     {
         name => 'Release branch created',
         reference => 'create a release branch',
-        action => sub( $self ) {
-            git( checkout => "-b", $release_branch );
-        },
         test => sub( $self ) {
             my $branch = git_branch();
             # timestamp: git show foo^{commit} -s '--format=%ai'
             $branch ne $release_branch
-                and return "Create branch $release_branch";
+                and return RMG::StepStatus->new(
+                    visual  => "Create branch $release_branch",
+                    actions => [
+                        sub( $self ) { git( checkout => "-b", $release_branch ); }
+                    ],
+                );
         },
     },
     {
@@ -438,13 +440,25 @@ my @steps = (
             # First check, if Module::CoreList knows our version
                 if( exitcode_zero("./perl","-Ilib","-MModule::CoreList","-le", 'exit !Module::CoreList->find_version($])')) {
                     # if not, run ./perl -Ilib Porting/corelist.pl cpan
-                    return "Update Module::CoreList";
-                } elsif( ! commit_message_exists( "Update Module::CoreList for .*$our_version",
-                    since => $previous_tag,
-                    author => $git_author,
-                )) {
-                    # git commit -m "Update Module::CoreList for $our_version"
-                    return "Commit the changes to Module::CoreList"
+                    return RMG::StepStatus->new(
+                        visual => "Update Module::CoreList",
+                        actions => [
+                            sub($self) { run("./perl","-Ilib","Porting/corelist.pl","cpan"); }
+                        ],
+                    );
+                } elsif(     ! commit_message_exists( "Update Module::CoreList for .*$our_version",)
+                         and ! commit_message_exists( "Prepare Module::CoreList",
+                                                      since => $previous_tag,
+                                                      author => $git_author,
+                               )
+                ) {
+                    return RMG::StepStatus->new(
+                        visual => "Commit the changes to Module::CoreList",
+                        actions => [
+                            sub($self) { git(commit => '-m', "Update Module::CoreList for $our_version"); }
+                        ],
+                    );
+                    return
                 }
                 # Check that the commit is like the other commits for that
         },
@@ -459,14 +473,18 @@ my @steps = (
                 my $old = pod_section('pod/perldelta.pod', 'Acknowledgements');
 
                 if( $new ne $old ) {
-                    return "Update the acknowledgements in pod/perldelta.pod";
+                    return RMG::StepStatus->new(
+                        visual => "Update the acknowledgements in pod/perldelta.pod",
+                    );
                 };
 
                 if( ! commit_message_exists( "update perldelta for .*$our_version",
                     since => $previous_tag,
                     author => $git_author,
                 )) {
-                    return "Commit the changes";
+                    return RMG::StepStatus->new(
+                        visual => "Commit the changes",
+                    );
                 };
         },
     },
@@ -477,7 +495,9 @@ my @steps = (
         test => sub( $self ) {
                 (my $bad) = grep { /\bXXX\b|^\s*\[(?!(github|commit))[^L]/ } lines("$build_dir/pod/perldelta.pod");
                 if ($bad) {
-                    return "Fix '$bad'"
+                    return RMG::StepStatus->new(
+                        visual => "Fix '$bad'",
+                    );
                 };
         },
     },
@@ -492,20 +512,23 @@ my @steps = (
                 (my $this) = grep { /\Q$version\E/ } lines( "$build_dir/pod/perlhist.pod" );
 
                 if( ! $this ) {
-                    return "version $version not added";
+                    return RMG::StepStatus->new(
+                        visual => "Add version $version",
+                    );
                 };
 
                 if( ! commit_message_exists( "add new release to perlhist",
                     since => $previous_tag,
                     author => $git_author,
                 )) {
-                    return "Commit changes to 'pod/perlhist.pod'";
+                    return RMG::StepStatus->new(
+                        visual => "Commit changes to 'pod/perlhist.pod'",
+                    );
                 };
         },
     },
     {
         action => sub( $self ) {
-            run('./perl', "-Ilib", "Porting/makemeta");
         },
         name => "META files are up to date",
         files => ["META.json","META.yml"],
@@ -513,10 +536,22 @@ my @steps = (
                 # Check that the META.* files are up to date
                 my $ok = exitcode_zero('./perl', '-Ilib', 'Porting/makemeta', '-n');
                 if( ! $ok ) {
-                    return "run ./perl -Ilib Porting/makemeta";
+                    return RMG::StepStatus->new(
+                        visual => "run ./perl -Ilib Porting/makemeta",
+                        actions => [
+                            sub( $self ) { run('./perl', "-Ilib", "Porting/makemeta");},
+                        ],
+                    );
 
                 } elsif( my @files = uncommited_changes( @{ $self->{files}})) {
-                    return "Commit the changes to @files";
+                    return RMG::StepStatus->new(
+                        visual => "Commit the changes to @files",
+                        actions => [
+                            sub( $self ) { git(add => @files )},
+                            # Is this second step helpful?
+                            sub( $self ) { git(commit => '-m', "Update META for $our_version" )},
+                        ],
+                    );
 
                 }
                 ()
@@ -524,14 +559,14 @@ my @steps = (
     },
     {
         name => "Test that the current Perl builds and installs as /tmp/perl-$our_version-pretest",
-        action => sub( $self ) {
-            run('./Configure -des -Dusedevel && make test && make install');
-        },
         reference => 'build, test and check a fresh perl',
         test => sub {
                 my $target = "/tmp/perl-$our_version-pretest";
                 if( ! -d $target) {
-                    return "Build and install using ./Configure -des -Dusedevel -Dprefix=$target"
+                    return RMG::StepStatus->new(
+                        visual => "Build and install using ./Configure -des -Dusedevel -Dprefix=$target",
+                        actions => [sub( $self ) { run('./Configure -des -Dusedevel && make test && make install'); }],
+                    );
                 };
 
                 # Check that we installed the correct version:
@@ -551,13 +586,15 @@ my @steps = (
     # we stand...
     {
         name => "tag for $our_version is created",
-        action => sub( $self ) {
-            git( tag => "v$our_version", '-m', "Perl $our_version" );
-        },
         type => 'milestone',
         test => sub {
                 if( ! git( tag => '-l', $our_tag )) {
-                    return "Create the release tag $our_tag";
+                    return RMG::StepStatus->new(
+                        visual => "Create the release tag $our_tag",
+                        actions => [sub( $self ) {
+                            git( tag => "v$our_version", '-m', "Perl $our_version" );
+                        }],
+                    );
                 };
         },
         id => 'tag-created'
@@ -566,18 +603,25 @@ my @steps = (
         name => "release tarball exists",
         reference => 'build the tarball',
         files => ["$build_dir/../$our_tarball_xz"],
-        action => sub( $self ) {
-            run( perl => "Porting/makerel", "-x" );
-        },
         test => sub {
             # Well, this should also be newer than all other
             # files here
                 if( ! file_exists( "../$our_tarball_xz" )) {
-                    return "Build the release tarball $our_tarball_xz"
+                    return RMG::StepStatus->new(
+                        visual => "Build the release tarball $our_tarball_xz",
+                        actions => [
+                            sub($self) { run( perl => "Porting/makerel", "-x" ); },
+                        ],
+                    );
                 };
 
                 if( my @newer = file_newer_than( "../$our_tarball_xz", "./perl" )) {
-                    return "Rebuild ../$our_tarball_xz, @newer is newer"
+                    return RMG::StepStatus->new(
+                        visual => "Rebuild ../$our_tarball_xz, @newer is newer",
+                        actions => [
+                            sub($self) { run( perl => "Porting/makerel", "-x" ); },
+                        ],
+                    );
                 }
                 ()
         },
@@ -590,11 +634,15 @@ my @steps = (
             # files here
             my $target = "/tmp/perl-$previous_version/bin/perl$previous_version";
             if( !file_exists( $target )) {
-                return "Locally install $previous_version"
+                return RMG::StepStatus->new(
+                    visual => "Locally install $previous_version",
+                );
             };
 
             if( my @newer = file_newer_than( "./perl", $target )) {
-                    return "Retest local installation, @newer is newer"
+                return RMG::StepStatus->new(
+                    visual => "Retest local installation, @newer is newer",
+                );
             };
 
             ()
@@ -608,11 +656,27 @@ my @steps = (
             # files here
             my $target = "/tmp/perl-$our_version/bin/perl$our_version";
             if( !file_exists( $target )) {
-                return "Locally install $our_version"
+                return RMG::StepStatus->new(
+                    visual => "Locally install $previous_version",
+                    actions => [
+                    # git clean -xdf
+                    # ./Configure -des -Dusedevel -Dprefix=/tmp/perl-5.43.7-pretest
+                    # make -j12 test
+                    # make install
+                    ],
+                );
             };
 
             if( my @newer = file_newer_than( $target, "./perl" )) {
-                    return "Retest local installation, @newer is newer"
+                return RMG::StepStatus->new(
+                    visual => "Retest local installation, @newer is newer",
+                    actions => [
+                    # git clean -xdf
+                    # ./Configure -des -Dusedevel -Dprefix=/tmp/perl-5.43.7-pretest
+                    # make -j12 test
+                    # make install
+                    ],
+                );
             };
 
             ()
@@ -624,7 +688,9 @@ my @steps = (
         test => sub {
             my $target = "/tmp/perl-$our_version/bin/perl$our_version";
             if( !file_exists( "/tmp/f1", "/tmp/f2" )) {
-                return "Run the file comparison"
+                RMG::StepStatus->new(
+                    visual => "Run the file comparison",
+                );
             };
         },
     },
@@ -638,14 +704,20 @@ my @steps = (
             # Or only do that if the release tarball exists, and then
             # check that they are identical!
                 if( ! file_exists( "../$our_tarball_xz" )) {
-                    return "Build the release tarball $our_tarball_xz"
+                    return RMG::StepStatus->new(
+                        visual => "Build the release tarball $our_tarball_xz"
+                    );
                 };
 
                 if( my @newer = file_newer_than( "../$our_tarball_xz", "./perl" )) {
-                    return "Rebuild ../$our_tarball_xz, @newer is newer"
+                    return RMG::StepStatus->new(
+                        visual => "Rebuild ../$our_tarball_xz, @newer is newer"
+                    );
                 }
                 if(! http_exists("https://datenzoo.de/$our_tarball_xz")) {
-                    return "Upload the tarball for testing"
+                    return RMG::StepStatus->new(
+                        visual => "Upload the tarball for testing"
+                    );
                 };
                 ()
         },
@@ -657,10 +729,14 @@ my @steps = (
             # Or only do that if the release tarball exists, and then
             # check that they are identical!
                 if( ! file_exists( "../$our_tarball_xz" )) {
-                    return "Build the release tarball $our_tarball_xz"
+                    return RMG::StepStatus->new(
+                        visual => "Build the release tarball $our_tarball_xz"
+                    );
                 };
                 if(! http_exists("https://www.cpan.org/authors/id/$cpan_author_url/$our_tarball_xz")) {
-                    return "Upload the tarball to CPAN"
+                    return RMG::StepStatus->new(
+                        visual => "Upload the tarball to CPAN"
+                    );
                 };
         },
     },
@@ -669,13 +745,17 @@ my @steps = (
         reference => 'Release schedule',
         test => sub {
             if( ! $planned_release->{released} ) {
-                return "Tick the release mark";
+                return RMG::StepStatus->new(
+                    visual => "Tick the release mark for $our_version",
+                );
             };
             if( ! commit_message_exists( "schedule",
                     since => $previous_tag,
                     author => $git_author,
                 )) {
-                return "Commit the change";
+                return RMG::StepStatus->new(
+                    visual => "Commit the change",
+                );
             };
         },
     },
@@ -684,13 +764,24 @@ my @steps = (
         reference => 'merge release branch back to blead',
         test => sub {
             my $branch = git_branch();
+            # Maybe convert this into a predicate "must_be_on_blead()" ?
             if( $branch ne 'blead') {
-                # XXX here we should return this action as the next step
-                return "Switch back to blead";
+                return RMG::StepStatus->new(
+                    visual => "Switch back to blead",
+                    actions => [
+                        sub($self) { git( checkout => 'blead' ) },
+                    ],
+                );
             }
             my @diff = git( log => $release_branch..'blead' );
             if( @diff ) {
-                return "Merge $release_branch into blead";
+                return RMG::StepStatus->new(
+                    visual => "Merge $release_branch into blead",
+                    actions => [
+                        # git pull
+                        sub($self) { git( merge => $release_branch ) },
+                    ],
+                );
             };
             ()
         },
@@ -703,14 +794,27 @@ my @steps = (
         needs => ['tag-created'],
         test => sub {
             my $branch = git_branch();
-            if( $branch ne 'blead' ) {
-                return "Switch back to blead";
+            # Maybe convert this into a predicate "must_be_on_blead()" ?
+            if( $branch ne 'blead') {
+                return RMG::StepStatus->new(
+                    visual => "Switch back to blead",
+                    actions => [
+                        sub($self) { git( checkout => 'blead' ) },
+                    ],
+                );
             };
             if( ! git( tag => '-l', $our_tag )) {
-                return "Tag '$our_tag' was not found in git?!"
+                return RMG::StepStatus->new(
+                    visual => "Tag '$our_tag' was not found in git?!",
+                );
             };
             if( ! git( 'ls-remote', '--tags', $git_remote )) {
-                return "Push the release tag upstream";
+                return RMG::StepStatus->new(
+                    visual => "Push the release tag upstream",
+                    actions => [
+                        sub( $self ) { git( push => "origin", "tag", $our_tag )},
+                    ],
+                );
             };
             ()
         },
@@ -721,12 +825,23 @@ my @steps = (
         needs => ['release-tag-pushed-upstream'],
         test => sub {
             my $branch = git_branch();
+            # Maybe convert this into a predicate "must_be_on_blead()" ?
             if( $branch ne 'blead') {
-                return "Switch back to blead";
-            }
+                return RMG::StepStatus->new(
+                    visual => "Switch back to blead",
+                    actions => [
+                        sub($self) { git( checkout => 'blead' ) },
+                    ],
+                );
+            };
             my @branches = grep { $_ eq $release_branch } git( branch => '-l' );
             if( @branches ) {
-                return "Delete branch $release_branch";
+                return RMG::StepStatus->new(
+                    visual => "Delete branch $release_branch",
+                    actions => [
+                        sub($self) { git( branch =>'-d', $release_branch ) },
+                    ],
+                );
             };
             ()
         },
@@ -740,14 +855,21 @@ my @steps = (
                 (my $this) = grep { /\Q$version\E/ } lines( 'Porting/epigraphs.pod' );
 
                 if( ! $this ) {
-                    return "version $version not added";
+                    return RMG::StepStatus->new(
+                        visual => "version $version not added",
+                    );
                 };
 
                 if( ! commit_message_exists( "Add epigraph for $our_version",
                     since => $previous_tag,
                     author => $git_author,
                 )) {
-                    return "Commit changes to 'Porting/epigraphs.pod'";
+                    return RMG::StepStatus->new(
+                        visual => "Commit changes to 'Porting/epigraphs.pod'",
+                        actions => [
+                            sub($self) { git( commit => "-m", "Add epigraph for $our_version" ) },
+                        ],
+                    );
                 };
         },
     },
@@ -755,22 +877,32 @@ my @steps = (
         name => 'Version number bumped for next dev release',
         release_type => 'BLEAD-POINT',
         reference => 'bump version',
-        action => sub( $self ) {
-            run( "perl" => "-Ilib","Porting/bump-perl-version","-i",$our_version, $next_version );
-        },
         test => sub {
+            # Maybe convert this into a predicate "must_be_on_blead()" ?
             my $branch = git_branch();
-            if( $branch ne 'blead' ) {
-                return { visual => "Switch back to blead" };
+            if( $branch ne 'blead') {
+                return RMG::StepStatus->new(
+                    visual => "Switch back to blead",
+                    actions => [
+                        sub($self) { git( checkout => 'blead' ) },
+                    ],
+                );
             };
 
             (my $version) = map {
                 /^api_versionstring='(.*?)'$/
             } lines("$build_dir/config.sh");
             if( $version ne $next_version) {
-                return "Found $version, bump versions to $next_version"
+                return RMG::StepStatus->new(
+                    visual => "Found $version, bump versions to $next_version",
+                    actions => [
+                        sub( $self ) {
+                            run( "perl" => "-Ilib","Porting/bump-perl-version","-i",$our_version, $next_version );
+                        },
+                    ],
+                );
             } else {
-                return 1
+                return ()
             };
         },
     },
@@ -792,6 +924,12 @@ for my $board (@boards) {
 my %status_cache;
 my %prerequisites;
 
+my %status_visual = (
+    done    => "\N{CHECK MARK}",
+    open    => ' ',
+    waiting => '.',
+);
+
 sub step_status( $step ) {
 	if (! exists $status_cache{ $step }) {
 		local $|=1;
@@ -804,20 +942,35 @@ sub step_status( $step ) {
         }
 
 		my $action;
-        my $is_done;
         if( @missing_prereq ) {
-            $action = "Waiting for " . join( ", ", @missing_prereq),
+            $action = RMG::StepStatus->new(
+                status  => 'waiting',
+                visual  => "Waiting for " . join( ", ", @missing_prereq),
+                prereq  => \@missing_prereq,
+                actions => [], # we don't know what to do yet
+            );
         } else {
             $action = $step->{test}->($step);
-            $is_done = !$action;
+
+            if( !$action) {
+                $action = RMG::StepStatus->new(
+                    status  => 'done',
+                    visual  => '',
+                    prereq  => [],
+                    actions => [], # nothing to do anymore
+                );
+            }
         }
 		my $name = $step->{name};
 
+        my $next_command = dry_run( $action->next_action );
+
 		$status_cache{ $step } = {
-			done => $is_done,
-            done_visual => ( $is_done ? "\N{CHECK MARK}" : " "),
+            done_visual => $status_visual{ $action->status } // '?',
+            done => $action->is_done,
 			name => $name,
-			action => $action,
+			action => $next_command,
+			action_visual => $action->visual,
 			step => $step,
 			reference => $step->{reference},
             id => $step->{id},
@@ -836,7 +989,7 @@ for my $step (@steps) {
     }
 }
 
-my @milestones = grep { $_->{done} eq "\N{CHECK MARK}" }
+my @milestones = grep { $_->{done} }
                  map  { step_status($_) }
                  grep { $_->{type} and $_->{type} eq 'milestone' } @steps;
 my $last_milestone = $milestones[-1] || 0;
@@ -854,10 +1007,10 @@ for my $step (@steps) {
 	my $s;
 	if( $before_milestone ) {
 		$s = {
-			done      => '-',
-			name      => $step->{name},
-			action    => "<cannot change anymore>",
-			reference => $step->{reference},
+			done_visual => '-',
+			name        => $step->{name},
+			action      => "<cannot change anymore>",
+			reference   => $step->{reference},
 		};
 	} else {
 		$s = step_status( $step );
@@ -886,7 +1039,7 @@ if( $output_format eq 'text' or $console ) {
     my $table = Text::Table->new();
     my @rendered_items = map {
         my $v_done = "[$_->{done_visual}]";
-        [$v_done, $_->{name}, $_->{action}, $_->{done} ? '' : dry_run( $_->{step}->{action} ) ]
+        [$v_done, $_->{name}, $_->{action_visual}, $_->{done} ? '' : $_->{action} ]
     } @items;
     $table->load( @rendered_items );
     $output .= $table . "\n";
