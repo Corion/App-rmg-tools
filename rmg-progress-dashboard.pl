@@ -1,6 +1,7 @@
 #!perl
-use 5.020;
+use 5.040; # we use a built-in class
 use experimental 'signatures';
+use experimental 'class';
 
 use POSIX 'strftime';
 use charnames ':full'; # for CHECK MARK
@@ -136,10 +137,35 @@ sub git(@command) {
     return run(git => @command)
 }
 
+sub manually(@command) {
+    if( $DRY_RUN ) {
+        return "@command";
+    }
+    return;
+}
+
 sub dry_run( $action ) {
     local $DRY_RUN = 1;
     return $action ? $action->({}) : '(manual)'
 }
+
+class RMG::StepStatus {
+    field $actions :param :reader = [];
+    field $visual  :param :reader;
+    field $status  :param :reader = 'open';
+    field $prereq  :param :reader = [];
+
+    # Move manually etc. also into here?!
+
+    method is_done {
+        return $status eq 'done'
+    }
+
+    method next_action {
+        return $actions->[0]
+    }
+};
+
 
 sub commit_message_exists($message, %options) {
     # this is pretty ugly - I think we want a more structured approach to parsing
