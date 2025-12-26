@@ -1,9 +1,6 @@
 #!perl
 use 5.020;
-use strict;
-use warnings;
-use feature 'signatures';
-no warnings 'experimental::signatures';
+use experimental 'signatures';
 
 use POSIX 'strftime';
 use charnames ':full'; # for CHECK MARK
