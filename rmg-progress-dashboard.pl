@@ -602,7 +602,7 @@ my @steps = (
         name => "tag for $our_version is created",
         type => 'milestone',
         test => sub {
-                if( ! git( tag => '-l', $our_tag )) {
+                if( ! git_tag_exists( $our_tag )) {
                     return RMG::StepStatus->new(
                         visual => "Create the release tag $our_tag",
                         actions => [git( tag => $our_tag, '-m', "Perl $our_version" )],
@@ -794,7 +794,7 @@ my @steps = (
         id => 'release-tag-pushed-upstream',
         needs => ['tag-created'],
         test => sub {
-            if( ! git( tag => '-l', $our_tag )) {
+            if( ! git_tag_exists( $our_tag )) {
                 return RMG::StepStatus->new(
                     visual => "Tag '$our_tag' was not found in git?!",
                 );
