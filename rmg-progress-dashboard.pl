@@ -379,6 +379,7 @@ my @steps = (
     },
     {
         name => 'Configure was run',
+        on_branch => $release_branch,
         reference => 'build a clean perl',
         files => [qw[config.sh Policy.sh Makefile]],
         action => sub( $self ) {
@@ -762,17 +763,9 @@ my @steps = (
     {
         name => 'Release branch merged back to blead',
         reference => 'merge release branch back to blead',
+        on_branch => 'blead',
         test => sub {
             my $branch = git_branch();
-            # Maybe convert this into a predicate "must_be_on_blead()" ?
-            if( $branch ne 'blead') {
-                return RMG::StepStatus->new(
-                    visual => "Switch back to blead",
-                    actions => [
-                        sub($self) { git( checkout => 'blead' ) },
-                    ],
-                );
-            }
             my @diff = git( log => $release_branch..'blead' );
             if( @diff ) {
                 return RMG::StepStatus->new(
@@ -788,21 +781,12 @@ my @steps = (
     },
     {
         name => 'Release tag pushed upstream',
+        on_branch => 'blead',
         reference => 'publish the release tag',
         type => 'milestone',
         id => 'release-tag-pushed-upstream',
         needs => ['tag-created'],
         test => sub {
-            my $branch = git_branch();
-            # Maybe convert this into a predicate "must_be_on_blead()" ?
-            if( $branch ne 'blead') {
-                return RMG::StepStatus->new(
-                    visual => "Switch back to blead",
-                    actions => [
-                        sub($self) { git( checkout => 'blead' ) },
-                    ],
-                );
-            };
             if( ! git( tag => '-l', $our_tag )) {
                 return RMG::StepStatus->new(
                     visual => "Tag '$our_tag' was not found in git?!",
@@ -821,19 +805,10 @@ my @steps = (
     },
     {
         name => 'Release branch deleted',
+        on_branch => 'blead',
         reference => 'delete release branch',
         needs => ['release-tag-pushed-upstream'],
         test => sub {
-            my $branch = git_branch();
-            # Maybe convert this into a predicate "must_be_on_blead()" ?
-            if( $branch ne 'blead') {
-                return RMG::StepStatus->new(
-                    visual => "Switch back to blead",
-                    actions => [
-                        sub($self) { git( checkout => 'blead' ) },
-                    ],
-                );
-            };
             my @branches = grep { $_ eq $release_branch } git( branch => '-l' );
             if( @branches ) {
                 return RMG::StepStatus->new(
@@ -875,20 +850,10 @@ my @steps = (
     },
     {
         name => 'Version number bumped for next dev release',
+        on_branch => 'blead',
         release_type => 'BLEAD-POINT',
         reference => 'bump version',
         test => sub {
-            # Maybe convert this into a predicate "must_be_on_blead()" ?
-            my $branch = git_branch();
-            if( $branch ne 'blead') {
-                return RMG::StepStatus->new(
-                    visual => "Switch back to blead",
-                    actions => [
-                        sub($self) { git( checkout => 'blead' ) },
-                    ],
-                );
-            };
-
             (my $version) = map {
                 /^api_versionstring='(.*?)'$/
             } lines("$build_dir/config.sh");
@@ -949,8 +914,22 @@ sub step_status( $step ) {
                 prereq  => \@missing_prereq,
                 actions => [], # we don't know what to do yet
             );
+
         } else {
-            $action = $step->{test}->($step);
+
+            # on_branch predicate
+            if( my $want_branch = $step->{on_branch}) {
+                my $branch = git_branch(); # maybe cache this, later
+                if( $branch ne $want_branch) {
+                    $action = RMG::StepStatus->new(
+                        visual => "Switch branch to $want_branch",
+                        actions => [
+                            sub($self) { git( checkout => $want_branch ) },
+                        ],
+                    );
+                }
+            }
+            $action //= $step->{test}->($step);
 
             if( !$action) {
                 $action = RMG::StepStatus->new(
