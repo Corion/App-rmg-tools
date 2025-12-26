@@ -422,30 +422,52 @@ my @steps = (
         test => sub($self) {
             # This will fail on Windows ...
             if( !file_exists( 'perl', $build_dir )) {
-                return "Run make";
+                return RMG::StepStatus->new(
+                    visual => "Run make",
+                    actions => [
+                        run('make', '-j12'),
+                    ],
+                )
             };
 
             if( my @newer = file_newer_than( "$build_dir/perl", ["$build_dir/config.sh", "$build_dir/Policy.sh" ])) {
-                return "Rebuild $build_dir/perl, @newer is newer"
+                return RMG::StepStatus->new(
+                    visual => "Rebuild $build_dir/perl, @newer is newer",
+                    actions => [
+                        run('make', '-j12'),
+                    ],
+                )
             };
 
             my $v = [run("./perl", "-I$build_dir/lib", '-wE', 'say $]')->()]->[0];
             if( $v != $our_version_num) {
-                return "Wrong Perl version was built ($v, expected $our_version)";
+                return RMG::StepStatus->new(
+                    visual => "Wrong Perl version was built ($v, expected $our_version)",
+                    actions => [
+                        manual("Check and build $our_version"),
+                    ],
+                )
             };
         },
     },
     {
         name => 'make test was run',
-        action => sub( $self ) {
-            run( make => 'test' );
-        },
         test => sub {
                 if( ! file_exists( 't/rantests', $build_dir )) {
-                    return "Run make test";
+                    return RMG::StepStatus->new(
+                        visual => "Run make test",
+                        actions => [
+                            run( make => 'test' ),
+                        ],
+                    );
                 };
                 if( ! file_newer_than('t/rantests', 'perl')) {
-                    return "Run make test after rebuild";
+                    return RMG::StepStatus->new(
+                        visual => "Run make test after rebuild",
+                        actions => [
+                            run( make => 'test' ),
+                        ],
+                    );
                 };
         },
     },
