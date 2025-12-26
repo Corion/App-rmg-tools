@@ -25,6 +25,7 @@ GetOptions(
     'format=s' => \my $output_format,
     'output-file|o=s' => \my $output_file,
     'console' => \my $console,
+    'verbose' => \my $verbose,
 );
 
 # We will shell out to the fresh Perl, so be certain not to pollute it
@@ -110,6 +111,9 @@ sub run(@command) {
         if( $DRY_RUN ) {
             return "@command";
         } else {
+            if( $verbose ) {
+                warn "[[@command]]\n";
+            }
             my $dir = getcwd();
             chdir( $build_dir )
                 or die "Couldn't chdir() to '$build_dir': $!";
