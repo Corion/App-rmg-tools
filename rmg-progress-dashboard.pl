@@ -921,9 +921,9 @@ my %status_cache;
 my %prerequisites;
 
 my %status_visual = (
-    done    => "\N{CHECK MARK}",
-    open    => ' ',
-    waiting => '.',
+    done    => "\N{CHECK MARK} ",
+    open    => '  ',
+    waiting => "\N{HOURGLASS}",
 );
 
 sub step_status( $step ) {
