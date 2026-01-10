@@ -34,16 +34,15 @@ delete @ENV{qw( PERL5LIB PERL_MB_OPT PERL_LOCAL_LIB_ROOT PERL_MM_OPT )};
 
 =head1 SYNOPSIS
 
-  cd bleadperl
-  watch -n 10 /usr/bin/perl ../App-rmg-tools/rmg-progress-dashboard.pl --version 5.35.1
+  watch -n 10 /usr/bin/perl rmg-progress-dashboard.pl --version 5.35.1 --build-dir ~/bleadperl
 
 If you prefer an HTML file, you can automatically update it using
 
-  while /bin/true; do ../App-rmg-tools/rmg-progress-dashboard.pl --version 5.35.1 -o /tmp/release-5.35.1.html; sleep; done
+  while /bin/true; do ./rmg-progress-dashboard.pl --version 5.35.1 --build-dir ~/bleadperl -o /tmp/release-5.35.1.html; sleep; done
 
 If you are interested in using the output of the program otherwise, consider JSON output
 
-  ../App-rmg-tools/rmg-progress-dashboard.pl --version 5.35.1 --format json | ...
+  rmg-progress-dashboard.pl --version 5.35.1 --format json | ...
 
 =cut
 
